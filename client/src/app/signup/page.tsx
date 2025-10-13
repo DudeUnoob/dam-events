@@ -47,7 +47,7 @@ export default function SignupPage() {
                       <Users className="h-6 w-6 text-primary-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">I&apos;m a Planner</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">I&apos;m an Event Planner</h3>
                       <p className="mt-1 text-sm text-slate-600">
                         Find and book complete event packages for your organization
                       </p>
