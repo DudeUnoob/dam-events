@@ -1,107 +1,106 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { PackageCard } from '@/components/planner/PackageCard';
-import { Package } from '@/types';
-import { Search, Filter, X } from 'lucide-react';
-
-// Mock data - will be replaced with actual data from Supabase
-const mockPackages: Package[] = [
-  {
-    id: '1',
-    vendor_id: 'vendor-1',
-    name: 'Premium Social Package',
-    description: 'Perfect for large social gatherings with full catering and entertainment',
-    venue_details: {
-      name: 'Grand Ballroom',
-      capacity: 200,
-      amenities: ['Stage', 'Dance Floor', 'Audio System'],
-    },
-    catering_details: {
-      menu_options: ['Buffet', 'Plated Dinner'],
-      dietary_accommodations: ['Vegetarian', 'Vegan', 'Gluten-Free'],
-    },
-    entertainment_details: {
-      type: 'DJ',
-      equipment: ['Sound System', 'Lighting'],
-    },
-    price_min: 4000,
-    price_max: 6000,
-    capacity: 200,
-    photos: [],
-    status: 'published',
-    created_at: '2025-01-01T00:00:00Z',
-    updated_at: '2025-01-01T00:00:00Z',
-    vendor: {
-      id: 'vendor-1',
-      user_id: 'user-1',
-      business_name: 'Elite Events Venue',
-      description: 'Premium event space',
-      services: ['venue', 'catering', 'entertainment'],
-      location_address: '123 Main St, Austin, TX',
-      location_lat: 30.2672,
-      location_lng: -97.7431,
-      status: 'verified',
-      created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-01T00:00:00Z',
-    },
-    distance: 2.3,
-  },
-  {
-    id: '2',
-    vendor_id: 'vendor-2',
-    name: 'Intimate Gathering Package',
-    description: 'Cozy space perfect for smaller events with personalized service',
-    venue_details: {
-      name: 'Garden Terrace',
-      capacity: 80,
-      amenities: ['Outdoor Space', 'Indoor Backup'],
-    },
-    catering_details: {
-      menu_options: ['Appetizers', 'Small Plates'],
-      dietary_accommodations: ['Vegetarian', 'Vegan'],
-    },
-    price_min: 2000,
-    price_max: 3500,
-    capacity: 80,
-    photos: [],
-    status: 'published',
-    created_at: '2025-01-01T00:00:00Z',
-    updated_at: '2025-01-01T00:00:00Z',
-    vendor: {
-      id: 'vendor-2',
-      user_id: 'user-2',
-      business_name: 'Garden Events Co',
-      description: 'Beautiful outdoor venue',
-      services: ['venue', 'catering'],
-      location_address: '456 Oak Ave, Austin, TX',
-      location_lat: 30.2849,
-      location_lng: -97.7341,
-      status: 'verified',
-      created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-01T00:00:00Z',
-    },
-    distance: 4.1,
-  },
-];
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
+import { Package, Event } from '@/types';
+import { Search, Filter, X, Sparkles } from 'lucide-react';
 
 export default function BrowsePackagesPage() {
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get('eventId');
+
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleRequestQuote = (packageId: string) => {
-    // TODO: Implement quote request
-    console.log('Request quote for:', packageId);
-  };
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const handleBulkRequestQuotes = () => {
-    // TODO: Implement bulk quote request
-    console.log('Request quotes for:', selectedPackages);
-  };
+        // If eventId is provided, fetch event details first
+        if (eventId) {
+          const eventResponse = await fetch(`/api/events/${eventId}`);
+          const eventData = await eventResponse.json();
+          if (eventResponse.ok && eventData.data) {
+            setEvent(eventData.data);
+          }
+        }
+
+        // Fetch packages (with optional event matching)
+        const url = eventId ? `/api/packages?eventId=${eventId}` : '/api/packages';
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error?.message || 'Failed to fetch packages');
+        }
+
+        setPackages(data.data || []);
+      } catch (err: any) {
+        console.error('Error fetching packages:', err);
+        setError(err.message || 'Failed to load packages');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPackages();
+  }, [eventId]);
+
+  // Filter packages based on search query
+  const filteredPackages = packages.filter(pkg => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      pkg.name.toLowerCase().includes(query) ||
+      pkg.description.toLowerCase().includes(query) ||
+      pkg.vendor?.business_name.toLowerCase().includes(query)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <div className="h-8 w-64 bg-slate-200 rounded animate-pulse mb-2" />
+            <div className="h-4 w-96 bg-slate-200 rounded animate-pulse" />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <ErrorState
+            title="Failed to Load Packages"
+            message={error}
+            onRetry={() => window.location.reload()}
+          />
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -110,11 +109,33 @@ export default function BrowsePackagesPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Browse Event Packages</h1>
           <p className="mt-2 text-slate-600">
-            Find complete event packages from verified vendors
+            {eventId && event
+              ? `Showing packages matched to your ${event.event_type} event`
+              : 'Find complete event packages from verified vendors'}
           </p>
         </div>
 
-        {/* Search & Filters */}
+        {/* Event Match Banner */}
+        {eventId && event && (
+          <Card className="mt-6 border-primary-200 bg-primary-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="h-5 w-5 text-primary-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-primary-900">Smart Matching Enabled</p>
+                  <p className="text-sm text-primary-700 mt-1">
+                    Showing packages for {event.guest_count} guests with a budget of ${event.budget.toLocaleString()}
+                    {packages.length > 0 && packages[0].distance !== undefined && (
+                      <>, sorted by proximity and compatibility</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Search & Filters - keeping the mock data structure but using real packages */}
         <Card className="mt-8">
           <CardContent className="p-6">
             <div className="flex flex-col gap-4 lg:flex-row">
@@ -126,6 +147,8 @@ export default function BrowsePackagesPage() {
                     type="text"
                     placeholder="Search packages by name or vendor..."
                     className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
               </div>
@@ -179,26 +202,21 @@ export default function BrowsePackagesPage() {
           </CardContent>
         </Card>
 
-        {/* Results Count & Bulk Actions */}
+        {/* Results Count */}
         <div className="mt-6 flex items-center justify-between">
           <p className="text-sm text-slate-600">
-            Showing <span className="font-medium text-slate-900">{mockPackages.length}</span> packages
+            Showing <span className="font-medium text-slate-900">{filteredPackages.length}</span> package{filteredPackages.length !== 1 ? 's' : ''}
           </p>
-          {selectedPackages.length > 0 && (
-            <Button onClick={handleBulkRequestQuotes}>
-              Request Quotes ({selectedPackages.length})
-            </Button>
-          )}
         </div>
 
         {/* Package Grid */}
-        {mockPackages.length > 0 ? (
+        {filteredPackages.length > 0 ? (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {mockPackages.map((pkg) => (
+            {filteredPackages.map((pkg) => (
               <PackageCard
                 key={pkg.id}
                 package={pkg}
-                onRequestQuote={handleRequestQuote}
+                eventId={eventId || undefined}
               />
             ))}
           </div>
@@ -208,7 +226,9 @@ export default function BrowsePackagesPage() {
               <Search className="mx-auto h-12 w-12 text-slate-400" />
               <h3 className="mt-4 text-lg font-semibold text-slate-900">No packages found</h3>
               <p className="mt-2 text-slate-600">
-                Try adjusting your filters or search criteria
+                {searchQuery
+                  ? 'Try adjusting your search query'
+                  : 'Try adjusting your filters or search criteria'}
               </p>
             </CardContent>
           </Card>

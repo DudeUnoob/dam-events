@@ -4,14 +4,17 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Package } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { MapPin, Users, Utensils, Music, Building2 } from 'lucide-react';
+import { MapPin, Users, Utensils, Music, Building2, Sparkles } from 'lucide-react';
 
 interface PackageCardProps {
   package: Package;
-  onRequestQuote?: (packageId: string) => void;
+  eventId?: string;
 }
 
-export function PackageCard({ package: pkg, onRequestQuote }: PackageCardProps) {
+export function PackageCard({ package: pkg, eventId }: PackageCardProps) {
+  const packageDetailUrl = eventId
+    ? `/packages/${pkg.id}?eventId=${eventId}`
+    : `/packages/${pkg.id}`;
   return (
     <Card className="overflow-hidden transition-all hover:shadow-lg">
       {/* Image */}
@@ -28,14 +31,19 @@ export function PackageCard({ package: pkg, onRequestQuote }: PackageCardProps) 
             <Building2 className="h-16 w-16 text-slate-400" />
           </div>
         )}
-        {pkg.distance && (
-          <Badge
-            variant="default"
-            className="absolute right-4 top-4 bg-white/90 text-slate-900"
-          >
-            {pkg.distance.toFixed(1)} mi away
-          </Badge>
-        )}
+        <div className="absolute right-4 top-4 flex gap-2">
+          {pkg.score !== undefined && (
+            <Badge variant="success" className="bg-green-600 text-white">
+              <Sparkles className="mr-1 h-3 w-3" />
+              {Math.round(pkg.score)}% match
+            </Badge>
+          )}
+          {pkg.distance !== undefined && (
+            <Badge variant="default" className="bg-white/90 text-slate-900">
+              {pkg.distance.toFixed(1)} mi
+            </Badge>
+          )}
+        </div>
       </div>
 
       <CardContent className="p-6">
@@ -94,17 +102,11 @@ export function PackageCard({ package: pkg, onRequestQuote }: PackageCardProps) 
         {/* Actions */}
         <div className="mt-6 flex gap-3">
           <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link href={`/planner/packages/${pkg.id}`}>View Details</Link>
+            <Link href={packageDetailUrl}>View Details</Link>
           </Button>
-          {onRequestQuote && (
-            <Button
-              size="sm"
-              className="flex-1"
-              onClick={() => onRequestQuote(pkg.id)}
-            >
-              Request Quote
-            </Button>
-          )}
+          <Button size="sm" className="flex-1" asChild>
+            <Link href={packageDetailUrl}>Request Quote</Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

@@ -2,27 +2,108 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ArrowLeft, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+
+const EVENT_TYPES = [
+  { value: 'social', label: 'Social Event' },
+  { value: 'mixer', label: 'Mixer' },
+  { value: 'formal', label: 'Formal' },
+  { value: 'fundraiser', label: 'Fundraiser' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'other', label: 'Other' },
+];
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    eventDate: '',
+    budget: '',
+    guestCount: '',
+    locationAddress: '',
+    eventType: 'social',
+    description: '',
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setError(null);
 
-    // TODO: Implement event creation with Supabase
-    setTimeout(() => {
+    // Validation
+    if (!formData.eventDate) {
+      setError('Event date is required');
+      return;
+    }
+
+    const budget = parseFloat(formData.budget);
+    if (isNaN(budget) || budget <= 0) {
+      setError('Please enter a valid budget');
+      return;
+    }
+
+    const guestCount = parseInt(formData.guestCount);
+    if (isNaN(guestCount) || guestCount <= 0) {
+      setError('Please enter a valid guest count');
+      return;
+    }
+
+    if (!formData.locationAddress.trim()) {
+      setError('Location is required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventDate: formData.eventDate,
+          budget: budget,
+          guestCount: guestCount,
+          locationAddress: formData.locationAddress.trim(),
+          eventType: formData.eventType,
+          description: formData.description.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || 'Failed to create event');
+      }
+
+      showToast('Event created successfully!', 'success');
+      router.push(`/planner/events/${data.data.id}`);
+    } catch (err: any) {
+      console.error('Error creating event:', err);
+      setError(err.message || 'Failed to create event. Please try again.');
+      showToast(err.message || 'Failed to create event', 'error');
+    } finally {
       setLoading(false);
-      router.push('/planner/dashboard');
-    }, 1000);
+    }
   };
 
   return (
@@ -51,21 +132,36 @@ export default function CreateEventPage() {
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Error Message */}
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              )}
+
               {/* Event Type */}
-              <Select label="Event Type" required>
-                <option value="">Select event type</option>
-                <option value="social">Social</option>
-                <option value="mixer">Mixer</option>
-                <option value="formal">Formal</option>
-                <option value="fundraiser">Fundraiser</option>
-                <option value="conference">Conference</option>
-                <option value="other">Other</option>
+              <Select
+                label="Event Type"
+                name="eventType"
+                value={formData.eventType}
+                onChange={handleChange}
+                required
+              >
+                {EVENT_TYPES.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </Select>
 
               {/* Event Date */}
               <Input
                 type="date"
                 label="Event Date"
+                name="eventDate"
+                value={formData.eventDate}
+                onChange={handleChange}
                 required
                 min={new Date().toISOString().split('T')[0]}
               />
@@ -74,6 +170,9 @@ export default function CreateEventPage() {
               <Input
                 type="number"
                 label="Expected Guest Count"
+                name="guestCount"
+                value={formData.guestCount}
+                onChange={handleChange}
                 placeholder="e.g., 150"
                 min="1"
                 required
@@ -84,6 +183,9 @@ export default function CreateEventPage() {
                 <Input
                   type="number"
                   label="Budget"
+                  name="budget"
+                  value={formData.budget}
+                  onChange={handleChange}
                   placeholder="e.g., 5000"
                   min="0"
                   step="100"
@@ -99,6 +201,9 @@ export default function CreateEventPage() {
                 <Input
                   type="text"
                   label="Event Location"
+                  name="locationAddress"
+                  value={formData.locationAddress}
+                  onChange={handleChange}
                   placeholder="Enter address or city"
                   required
                 />
@@ -110,8 +215,12 @@ export default function CreateEventPage() {
               {/* Description */}
               <Textarea
                 label="Event Description (Optional)"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
                 placeholder="Tell vendors more about your event..."
                 rows={4}
+                maxLength={500}
               />
 
               {/* Form Actions */}
@@ -121,11 +230,19 @@ export default function CreateEventPage() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => router.push('/planner/dashboard')}
+                  disabled={loading}
                 >
-                  Save as Draft
+                  Cancel
                 </Button>
                 <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create & Find Packages'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create & Find Packages'
+                  )}
                 </Button>
               </div>
             </form>

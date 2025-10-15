@@ -4,17 +4,44 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Calendar, Users, Building2 } from 'lucide-react';
+import { Calendar, Users, Building2, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
   const defaultRole = searchParams.get('role') as 'planner' | 'vendor' | null;
   const [selectedRole, setSelectedRole] = useState<'planner' | 'vendor' | null>(defaultRole);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   const handleGoogleSignup = async () => {
-    // TODO: Implement Supabase Google OAuth with role
-    console.log('Google signup clicked with role:', selectedRole);
+    if (!selectedRole) {
+      setError('Please select how you want to use DAM Events');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Store role in sessionStorage to pass to completion page
+      sessionStorage.setItem('signup_role', selectedRole);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Error signing up:', err);
+      setError(err.message || 'Failed to sign up. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,6 +62,14 @@ export default function SignupPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
             {/* Role Selection */}
             {!selectedRole && (
               <div className="grid gap-4 md:grid-cols-2">
@@ -119,6 +154,7 @@ export default function SignupPage() {
                   onClick={handleGoogleSignup}
                   className="w-full"
                   size="lg"
+                  disabled={loading}
                 >
                   <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                     <path
@@ -138,7 +174,7 @@ export default function SignupPage() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  Continue with Google
+                  {loading ? 'Signing up...' : 'Continue with Google'}
                 </Button>
 
                 <p className="text-center text-xs text-slate-500">

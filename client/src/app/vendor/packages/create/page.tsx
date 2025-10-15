@@ -2,26 +2,165 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { ArrowLeft, Package, Upload } from 'lucide-react';
+import { PhotoUpload } from '@/components/vendor/PhotoUpload';
+import { ArrowLeft, Package, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+
+interface PackageFormData {
+  name: string;
+  description: string;
+  priceMin: number;
+  priceMax: number;
+  capacity: number;
+  venueName: string;
+  venueAmenities: string[];
+  cateringMenuOptions: string;
+  cateringDietary: string[];
+  entertainmentType: string;
+  entertainmentEquipment: string;
+  photos: string[];
+  status: 'draft' | 'published';
+}
 
 export default function CreatePackagePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [packageId, setPackageId] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const [formData, setFormData] = useState<PackageFormData>({
+    name: '',
+    description: '',
+    priceMin: 0,
+    priceMax: 0,
+    capacity: 0,
+    venueName: '',
+    venueAmenities: [],
+    cateringMenuOptions: '',
+    cateringDietary: [],
+    entertainmentType: '',
+    entertainmentEquipment: '',
+    photos: [],
+    status: 'published',
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: parseFloat(value) || 0,
+    }));
+  };
+
+  const handleCheckboxChange = (category: 'venueAmenities' | 'cateringDietary', value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [category]: prev[category].includes(value)
+        ? prev[category].filter((item) => item !== value)
+        : [...prev[category], value],
+    }));
+  };
+
+  const handlePhotosUploaded = (urls: string[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      photos: urls,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, status: 'draft' | 'published') => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
-    // TODO: Implement package creation with Supabase
-    setTimeout(() => {
+    try {
+      // First get vendor ID
+      const userResponse = await fetch('/api/auth/user');
+      const userData = await userResponse.json();
+
+      if (!userData.data) {
+        throw new Error('Please complete vendor onboarding first');
+      }
+
+      // Get vendor profile
+      const vendorResponse = await fetch(`/api/vendors?userId=${user?.id}`);
+      const vendorData = await vendorResponse.json();
+
+      if (!vendorData.data || vendorData.data.length === 0) {
+        setError('Please complete your vendor profile before creating packages');
+        setLoading(false);
+        return;
+      }
+
+      const vendorId = vendorData.data[0].id;
+
+      // Prepare package data
+      const packageData = {
+        vendor_id: vendorId,
+        name: formData.name,
+        description: formData.description,
+        price_min: formData.priceMin,
+        price_max: formData.priceMax,
+        capacity: formData.capacity,
+        venue_details: formData.venueName
+          ? {
+              name: formData.venueName,
+              capacity: formData.capacity,
+              amenities: formData.venueAmenities,
+            }
+          : null,
+        catering_details: formData.cateringMenuOptions
+          ? {
+              menu_options: formData.cateringMenuOptions.split('\n').filter(Boolean),
+              dietary_accommodations: formData.cateringDietary,
+            }
+          : null,
+        entertainment_details: formData.entertainmentType
+          ? {
+              type: formData.entertainmentType,
+              equipment: formData.entertainmentEquipment.split('\n').filter(Boolean),
+            }
+          : null,
+        photos: formData.photos,
+        status,
+      };
+
+      // Create package
+      const response = await fetch('/api/packages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(packageData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to create package');
+      }
+
+      // Success! Redirect to packages list or dashboard
+      router.push('/vendor/dashboard');
+    } catch (err: any) {
+      console.error('Error creating package:', err);
+      setError(err.message || 'Failed to create package. Please try again.');
       setLoading(false);
-      router.push('/vendor/packages');
-    }, 1000);
+    }
   };
 
   return (
@@ -51,19 +190,31 @@ export default function CreatePackagePage() {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-8">
+            {error && (
+              <div className="mb-6 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-800">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={(e) => handleSubmit(e, 'published')} className="space-y-8">
               {/* Basic Information */}
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-slate-900">Basic Information</h3>
 
                 <Input
                   type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
                   label="Package Name"
                   placeholder="e.g., Premium Social Package"
                   required
                 />
 
                 <Textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
                   label="Package Description"
                   placeholder="Describe what makes this package special..."
                   rows={4}
@@ -73,6 +224,9 @@ export default function CreatePackagePage() {
                 <div className="grid gap-6 sm:grid-cols-2">
                   <Input
                     type="number"
+                    name="priceMin"
+                    value={formData.priceMin || ''}
+                    onChange={handleNumberChange}
                     label="Minimum Price ($)"
                     placeholder="4000"
                     min="0"
@@ -82,6 +236,9 @@ export default function CreatePackagePage() {
 
                   <Input
                     type="number"
+                    name="priceMax"
+                    value={formData.priceMax || ''}
+                    onChange={handleNumberChange}
                     label="Maximum Price ($)"
                     placeholder="6000"
                     min="0"
@@ -92,6 +249,9 @@ export default function CreatePackagePage() {
 
                 <Input
                   type="number"
+                  name="capacity"
+                  value={formData.capacity || ''}
+                  onChange={handleNumberChange}
                   label="Maximum Capacity"
                   placeholder="200"
                   min="1"
@@ -105,9 +265,11 @@ export default function CreatePackagePage() {
 
                 <Input
                   type="text"
+                  name="venueName"
+                  value={formData.venueName}
+                  onChange={handleChange}
                   label="Venue Name"
                   placeholder="Grand Ballroom"
-                  required
                 />
 
                 <div>
@@ -115,46 +277,32 @@ export default function CreatePackagePage() {
                     Amenities
                   </label>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Stage</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Dance Floor</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Audio System</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Parking</span>
-                    </label>
+                    {['Stage', 'Dance Floor', 'Audio System', 'Parking', 'Bar Area', 'Kitchen'].map((amenity) => (
+                      <label key={amenity} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.venueAmenities.includes(amenity)}
+                          onChange={() => handleCheckboxChange('venueAmenities', amenity)}
+                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-slate-700">{amenity}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Catering Details */}
               <div className="space-y-6 border-t border-slate-200 pt-6">
-                <h3 className="text-lg font-semibold text-slate-900">Catering Details</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Catering Details (Optional)</h3>
 
                 <Textarea
+                  name="cateringMenuOptions"
+                  value={formData.cateringMenuOptions}
+                  onChange={handleChange}
                   label="Menu Options"
-                  placeholder="Describe available menu options (e.g., Buffet, Plated Dinner, Appetizers)"
-                  rows={3}
+                  placeholder="Describe available menu options (one per line)&#10;e.g., Buffet Style&#10;Plated Dinner&#10;Appetizers & Hors d'oeuvres"
+                  rows={4}
                 />
 
                 <div>
@@ -162,27 +310,17 @@ export default function CreatePackagePage() {
                     Dietary Accommodations
                   </label>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Vegetarian</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Vegan</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-slate-700">Gluten-Free</span>
-                    </label>
+                    {['Vegetarian', 'Vegan', 'Gluten-Free', 'Halal', 'Kosher'].map((diet) => (
+                      <label key={diet} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.cateringDietary.includes(diet)}
+                          onChange={() => handleCheckboxChange('cateringDietary', diet)}
+                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-slate-700">{diet}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -195,13 +333,19 @@ export default function CreatePackagePage() {
 
                 <Input
                   type="text"
+                  name="entertainmentType"
+                  value={formData.entertainmentType}
+                  onChange={handleChange}
                   label="Entertainment Type"
                   placeholder="e.g., DJ, Live Band, None"
                 />
 
                 <Textarea
+                  name="entertainmentEquipment"
+                  value={formData.entertainmentEquipment}
+                  onChange={handleChange}
                   label="Equipment Provided"
-                  placeholder="List any entertainment equipment included (e.g., Sound System, Lighting, Microphones)"
+                  placeholder="List any entertainment equipment included (one per line)&#10;e.g., Sound System&#10;Lighting&#10;Microphones"
                   rows={3}
                 />
               </div>
@@ -215,20 +359,21 @@ export default function CreatePackagePage() {
                   </p>
                 </div>
 
-                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300 p-12 transition-colors hover:border-primary-400">
-                  <div className="text-center">
-                    <Upload className="mx-auto h-12 w-12 text-slate-400" />
-                    <p className="mt-2 text-sm font-medium text-slate-900">
-                      Drop images here or click to upload
+                {packageId || formData.name ? (
+                  <PhotoUpload
+                    bucketName="package-photos"
+                    folderId={packageId || formData.name.replace(/\s+/g, '-').toLowerCase()}
+                    maxPhotos={15}
+                    existingPhotos={formData.photos}
+                    onUpload={handlePhotosUploaded}
+                  />
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed border-slate-300 p-8 text-center">
+                    <p className="text-sm text-slate-600">
+                      Please fill in the package name above to enable photo uploads
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      PNG, JPG up to 5MB each
-                    </p>
-                    <Button variant="outline" size="sm" className="mt-4" type="button">
-                      Choose Files
-                    </Button>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Form Actions */}
@@ -237,12 +382,25 @@ export default function CreatePackagePage() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => router.push('/vendor/dashboard')}
+                  onClick={(e) => {
+                    const form = e.currentTarget.closest('form');
+                    if (form) {
+                      handleSubmit(new Event('submit') as any, 'draft');
+                    }
+                  }}
+                  disabled={loading}
                 >
-                  Save as Draft
+                  {loading ? 'Saving...' : 'Save as Draft'}
                 </Button>
                 <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? 'Publishing...' : 'Publish Package'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    'Publish Package'
+                  )}
                 </Button>
               </div>
             </form>

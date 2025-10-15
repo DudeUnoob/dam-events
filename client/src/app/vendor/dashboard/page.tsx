@@ -1,70 +1,57 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { LeadCard } from '@/components/vendor/LeadCard';
-import { Plus, Package, MessageSquare, TrendingUp, DollarSign } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
+import { Plus, Package, MessageSquare, TrendingUp, DollarSign, RefreshCw } from 'lucide-react';
 import { Lead } from '@/types';
 
-// Mock data - will be replaced with actual data from Supabase
-const mockLeads: Lead[] = [
-  {
-    id: '1',
-    event_id: 'event-1',
-    vendor_id: 'vendor-1',
-    package_id: 'package-1',
-    planner_id: 'planner-1',
-    status: 'new',
-    created_at: '2025-01-20T10:00:00Z',
-    updated_at: '2025-01-20T10:00:00Z',
-    event: {
-      id: 'event-1',
-      planner_id: 'planner-1',
-      event_date: '2025-03-15',
-      budget: 5000,
-      guest_count: 150,
-      location_address: '123 University Ave, Austin, TX',
-      location_lat: 30.2672,
-      location_lng: -97.7431,
-      event_type: 'Spring Formal',
-      description: 'Annual spring formal for fraternity',
-      status: 'active',
-      created_at: '2025-01-15T10:00:00Z',
-      updated_at: '2025-01-15T10:00:00Z',
-    },
-  },
-  {
-    id: '2',
-    event_id: 'event-2',
-    vendor_id: 'vendor-1',
-    package_id: 'package-1',
-    planner_id: 'planner-2',
-    status: 'quoted',
-    created_at: '2025-01-18T14:00:00Z',
-    responded_at: '2025-01-18T16:00:00Z',
-    updated_at: '2025-01-18T16:00:00Z',
-    event: {
-      id: 'event-2',
-      planner_id: 'planner-2',
-      event_date: '2025-04-10',
-      budget: 3500,
-      guest_count: 100,
-      location_address: '456 Campus Dr, Austin, TX',
-      location_lat: 30.2849,
-      location_lng: -97.7341,
-      event_type: 'Networking Mixer',
-      status: 'active',
-      created_at: '2025-01-10T14:00:00Z',
-      updated_at: '2025-01-10T14:00:00Z',
-    },
-  },
-];
-
 export default function VendorDashboard() {
-  const newLeads = mockLeads.filter((l) => l.status === 'new').length;
-  const quotedLeads = mockLeads.filter((l) => l.status === 'quoted').length;
-  const bookedLeads = mockLeads.filter((l) => l.status === 'booked').length;
+  const { user, loading: authLoading } = useAuth();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLeads = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/leads?role=vendor');
+      const data = await response.json();
+
+      if (response.ok && data.data) {
+        setLeads(data.data);
+      } else {
+        setError(data.error?.message || 'Failed to fetch leads');
+      }
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+      setError('Failed to load leads. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchLeads();
+    }
+  }, [user, authLoading]);
+
+  const newLeads = leads.filter((l) => l.status === 'new').length;
+  const quotedLeads = leads.filter((l) => l.status === 'quoted').length;
+  const bookedLeads = leads.filter((l) => l.status === 'booked').length;
+  const estimatedRevenue = leads
+    .filter((l) => l.status === 'booked')
+    .reduce((sum, lead) => sum + (lead.event?.budget || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -75,12 +62,18 @@ export default function VendorDashboard() {
             <h1 className="text-3xl font-bold text-slate-900">Vendor Dashboard</h1>
             <p className="mt-2 text-slate-600">Manage your leads and packages</p>
           </div>
-          <Button asChild>
-            <Link href="/vendor/packages/create">
-              <Plus className="mr-2 h-5 w-5" />
-              Create Package
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" onClick={fetchLeads} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button asChild>
+              <Link href="/vendor/packages/create">
+                <Plus className="mr-2 h-5 w-5" />
+                Create Package
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -134,7 +127,9 @@ export default function VendorDashboard() {
                   <DollarSign className="h-6 w-6 text-primary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">$0</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    ${estimatedRevenue.toLocaleString()}
+                  </p>
                   <p className="text-sm text-slate-600">Est. Revenue</p>
                 </div>
               </div>
@@ -159,9 +154,28 @@ export default function VendorDashboard() {
             </div>
           </div>
 
-          {mockLeads.length > 0 ? (
+          {loading ? (
             <div className="grid gap-6 lg:grid-cols-2">
-              {mockLeads.map((lead) => (
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-24 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : error ? (
+            <ErrorState
+              title="Failed to load leads"
+              message={error}
+              action={{
+                label: 'Try Again',
+                onClick: fetchLeads,
+              }}
+            />
+          ) : leads.length > 0 ? (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {leads.map((lead) => (
                 <LeadCard key={lead.id} lead={lead} />
               ))}
             </div>
