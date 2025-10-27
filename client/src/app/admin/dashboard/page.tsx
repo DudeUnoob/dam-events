@@ -1,56 +1,127 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
 import { Vendor } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Shield, CheckCircle, XCircle, Clock, Users, Package } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, Users, Package, RefreshCw } from 'lucide-react';
 
-// Mock data
-const mockPendingVendors: Vendor[] = [
-  {
-    id: '1',
-    user_id: 'user-1',
-    business_name: 'Elite Events Venue',
-    description: 'Premium event space in downtown Austin',
-    services: ['venue', 'catering', 'entertainment'],
-    location_address: '123 Main St, Austin, TX',
-    location_lat: 30.2672,
-    location_lng: -97.7431,
-    status: 'pending',
-    created_at: '2025-01-20T10:00:00Z',
-    updated_at: '2025-01-20T10:00:00Z',
-  },
-  {
-    id: '2',
-    user_id: 'user-2',
-    business_name: 'Garden Events Co',
-    description: 'Beautiful outdoor venue',
-    services: ['venue', 'catering'],
-    location_address: '456 Oak Ave, Austin, TX',
-    location_lat: 30.2849,
-    location_lng: -97.7341,
-    status: 'pending',
-    created_at: '2025-01-19T14:00:00Z',
-    updated_at: '2025-01-19T14:00:00Z',
-  },
-];
+interface AdminStats {
+  pendingVendors: number;
+  verifiedVendors: number;
+  activePackages: number;
+  totalUsers: number;
+}
 
 export default function AdminDashboard() {
-  const [vendors, setVendors] = useState(mockPendingVendors);
+  const { user } = useAuth();
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
 
-  const handleApprove = (vendorId: string) => {
-    // TODO: Implement approval with Supabase
-    console.log('Approving vendor:', vendorId);
-    setVendors(vendors.filter((v) => v.id !== vendorId));
+  const fetchVendors = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch both vendors and stats in parallel
+      const [vendorsResponse, statsResponse] = await Promise.all([
+        fetch('/api/admin/vendors?status=pending'),
+        fetch('/api/admin/stats'),
+      ]);
+
+      const vendorsData = await vendorsResponse.json();
+      const statsData = await statsResponse.json();
+
+      if (vendorsResponse.ok && vendorsData.data) {
+        setVendors(vendorsData.data);
+      } else {
+        setError(vendorsData.error?.message || 'Failed to fetch vendors');
+      }
+
+      if (statsResponse.ok && statsData.data) {
+        setStats(statsData.data);
+      }
+    } catch (err) {
+      console.error('Error fetching vendors:', err);
+      setError('Failed to load pending vendors');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = (vendorId: string) => {
-    // TODO: Implement rejection with Supabase
-    console.log('Rejecting vendor:', vendorId);
-    setVendors(vendors.filter((v) => v.id !== vendorId));
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      fetchVendors();
+    }
+  }, [user]);
+
+  const handleApprove = async (vendorId: string) => {
+    setUpdating(vendorId);
+
+    try {
+      const response = await fetch(`/api/admin/vendors/${vendorId}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'verified' }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setVendors(vendors.filter((v) => v.id !== vendorId));
+        alert('Vendor approved successfully!');
+      } else {
+        alert(data.error?.message || 'Failed to approve vendor');
+      }
+    } catch (err) {
+      console.error('Error approving vendor:', err);
+      alert('Failed to approve vendor');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleReject = async (vendorId: string) => {
+    const reason = prompt('Please provide a reason for rejection (optional):');
+
+    setUpdating(vendorId);
+
+    try {
+      const response = await fetch(`/api/admin/vendors/${vendorId}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'rejected',
+          reason: reason || 'Did not meet platform criteria',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setVendors(vendors.filter((v) => v.id !== vendorId));
+        alert('Vendor rejected');
+      } else {
+        alert(data.error?.message || 'Failed to reject vendor');
+      }
+    } catch (err) {
+      console.error('Error rejecting vendor:', err);
+      alert('Failed to reject vendor');
+    } finally {
+      setUpdating(null);
+    }
   };
 
   return (
@@ -58,14 +129,20 @@ export default function AdminDashboard() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-accent-100 p-3">
-              <Shield className="h-8 w-8 text-accent-600" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-accent-100 p-3">
+                <Shield className="h-8 w-8 text-accent-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+                <p className="text-slate-600">Manage vendor applications and platform operations</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
-              <p className="text-slate-600">Manage vendor applications and platform operations</p>
-            </div>
+            <Button variant="outline" size="sm" onClick={fetchVendors} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
         </div>
 
@@ -78,7 +155,9 @@ export default function AdminDashboard() {
                   <Clock className="h-6 w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{vendors.length}</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.pendingVendors : vendors.length}
+                  </p>
                   <p className="text-sm text-slate-600">Pending Review</p>
                 </div>
               </div>
@@ -92,7 +171,9 @@ export default function AdminDashboard() {
                   <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">20</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.verifiedVendors : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Verified Vendors</p>
                 </div>
               </div>
@@ -106,7 +187,9 @@ export default function AdminDashboard() {
                   <Package className="h-6 w-6 text-primary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">45</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.activePackages : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Active Packages</p>
                 </div>
               </div>
@@ -120,7 +203,9 @@ export default function AdminDashboard() {
                   <Users className="h-6 w-6 text-secondary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">120</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.totalUsers : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Total Users</p>
                 </div>
               </div>
@@ -134,7 +219,26 @@ export default function AdminDashboard() {
             Pending Vendor Applications
           </h2>
 
-          {vendors.length > 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-32 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : error ? (
+            <ErrorState
+              title="Failed to load vendors"
+              message={error}
+              action={{
+                label: 'Try Again',
+                onClick: fetchVendors,
+              }}
+            />
+          ) : vendors.length > 0 ? (
             <div className="space-y-4">
               {vendors.map((vendor) => (
                 <Card key={vendor.id}>
@@ -186,25 +290,20 @@ export default function AdminDashboard() {
                           size="sm"
                           className="flex-1 lg:flex-none"
                           onClick={() => handleApprove(vendor.id)}
+                          disabled={updating === vendor.id}
                         >
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Approve
+                          {updating === vendor.id ? 'Approving...' : 'Approve'}
                         </Button>
                         <Button
                           variant="danger"
                           size="sm"
                           className="flex-1 lg:flex-none"
                           onClick={() => handleReject(vendor.id)}
+                          disabled={updating === vendor.id}
                         >
                           <XCircle className="mr-2 h-4 w-4" />
-                          Reject
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 lg:flex-none"
-                        >
-                          View Details
+                          {updating === vendor.id ? 'Rejecting...' : 'Reject'}
                         </Button>
                       </div>
                     </div>

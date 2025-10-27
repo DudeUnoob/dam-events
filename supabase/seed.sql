@@ -1,0 +1,102 @@
+-- Seed data for testing DAM Event Platform
+-- WARNING: This is for development/testing only!
+
+-- Note: You'll need to create test users via Supabase Auth Dashboard first
+-- Then use their IDs here
+
+-- Example seed data structure (replace UUIDs with actual auth user IDs)
+
+-- Insert test planner user
+-- INSERT INTO public.users (id, email, full_name, role, organization)
+-- VALUES (
+--   'YOUR-PLANNER-AUTH-UUID',
+--   'planner@test.com',
+--   'Test Planner',
+--   'planner',
+--   'Test Student Organization'
+-- );
+
+-- Insert test vendor user
+-- INSERT INTO public.users (id, email, full_name, role, phone)
+-- VALUES (
+--   'YOUR-VENDOR-AUTH-UUID',
+--   'vendor@test.com',
+--   'Test Vendor',
+--   'vendor',
+--   '+15125551234'
+-- );
+
+-- Insert test admin user
+-- INSERT INTO public.users (id, email, full_name, role)
+-- VALUES (
+--   'YOUR-ADMIN-AUTH-UUID',
+--   'admin@test.com',
+--   'Test Admin',
+--   'admin'
+-- );
+
+-- Insert test vendor profile
+-- INSERT INTO public.vendors (user_id, business_name, description, services, location_address, location_lat, location_lng, status)
+-- VALUES (
+--   'YOUR-VENDOR-AUTH-UUID',
+--   'Austin Event Venue',
+--   'Beautiful venue in the heart of Austin with full catering and entertainment services.',
+--   ARRAY['venue', 'catering', 'entertainment'],
+--   '123 Congress Ave, Austin, TX 78701',
+--   30.2672,
+--   -97.7431,
+--   'verified'
+-- );
+
+-- Insert test package
+-- INSERT INTO public.packages (
+--   vendor_id,
+--   name,
+--   description,
+--   venue_details,
+--   catering_details,
+--   entertainment_details,
+--   price_min,
+--   price_max,
+--   capacity,
+--   status
+-- )
+-- SELECT
+--   v.id,
+--   'Complete Event Package',
+--   'All-inclusive package with venue, catering, and DJ for up to 200 guests',
+--   '{"name": "Main Ballroom", "capacity": 200, "amenities": ["Stage", "Dance Floor", "Bar", "Outdoor Patio"]}'::jsonb,
+--   '{"menu_options": ["Buffet", "Plated Dinner", "Appetizers"], "dietary_accommodations": ["Vegetarian", "Vegan", "Gluten-Free"]}'::jsonb,
+--   '{"type": "DJ", "equipment": ["Sound System", "Lighting", "Microphones"]}'::jsonb,
+--   2500.00,
+--   5000.00,
+--   200,
+--   'published'
+-- FROM public.vendors v
+-- WHERE v.user_id = 'YOUR-VENDOR-AUTH-UUID';
+
+-- Insert test event
+-- INSERT INTO public.events (
+--   planner_id,
+--   event_date,
+--   budget,
+--   guest_count,
+--   location_address,
+--   location_lat,
+--   location_lng,
+--   event_type,
+--   description,
+--   status
+-- )
+-- VALUES (
+--   'YOUR-PLANNER-AUTH-UUID',
+--   '2025-03-15',
+--   3000.00,
+--   150,
+--   'University of Texas, Austin, TX',
+--   30.2849,
+--   -97.7341,
+--   'formal',
+--   'Spring formal event for student organization',
+--   'active'
+-- );

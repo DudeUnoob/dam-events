@@ -1,47 +1,122 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EventCard } from '@/components/planner/EventCard';
+import { CardSkeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
 import { Plus, Calendar, MessageSquare, Package } from 'lucide-react';
 import { Event } from '@/types';
 
-// Mock data - will be replaced with actual data from Supabase
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    planner_id: 'user-1',
-    event_date: '2025-03-15',
-    budget: 5000,
-    guest_count: 150,
-    location_address: '123 University Ave, Austin, TX',
-    location_lat: 30.2672,
-    location_lng: -97.7431,
-    event_type: 'Spring Formal',
-    description: 'Annual spring formal for fraternity',
-    status: 'active',
-    created_at: '2025-01-15T10:00:00Z',
-    updated_at: '2025-01-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    planner_id: 'user-1',
-    event_date: '2025-04-20',
-    budget: 3000,
-    guest_count: 80,
-    location_address: '456 Campus Dr, Austin, TX',
-    location_lat: 30.2849,
-    location_lng: -97.7341,
-    event_type: 'Networking Mixer',
-    description: 'Professional networking event',
-    status: 'draft',
-    created_at: '2025-01-10T14:00:00Z',
-    updated_at: '2025-01-10T14:00:00Z',
-  },
-];
-
 export default function PlannerDashboard() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    quotesReceived: 0,
+    unreadMessages: 0,
+  });
+
+  // Redirect if not planner
+  useEffect(() => {
+    if (!authLoading && (!user || user.role !== 'planner')) {
+      router.push('/');
+    }
+  }, [user, authLoading, router]);
+
+  // Fetch events
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch('/api/events');
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error?.message || 'Failed to fetch events');
+        }
+
+        setEvents(data.data || []);
+      } catch (err: any) {
+        console.error('Error fetching events:', err);
+        setError(err.message || 'Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [user]);
+
+  // Fetch stats (leads and messages)
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchStats = async () => {
+      try {
+        // Fetch leads for quote count
+        const leadsResponse = await fetch('/api/leads?role=planner');
+        const leadsData = await leadsResponse.json();
+
+        if (leadsResponse.ok && leadsData.data) {
+          setStats(prev => ({ ...prev, quotesReceived: leadsData.data.length }));
+        }
+
+        // TODO: Fetch unread message count when messages API is ready
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      }
+    };
+
+    fetchStats();
+  }, [user]);
+
+  if (authLoading || (loading && events.length === 0)) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <div className="h-8 w-48 bg-slate-200 rounded animate-pulse mb-2" />
+            <div className="h-4 w-64 bg-slate-200 rounded animate-pulse" />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            {[1, 2, 3, 4].map(i => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'planner') {
+    return null;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <ErrorState
+            title="Failed to Load Dashboard"
+            message={error}
+            onRetry={() => window.location.reload()}
+          />
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -69,7 +144,7 @@ export default function PlannerDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-slate-900">
-                    {mockEvents.filter((e) => e.status === 'active').length}
+                    {events.filter((e) => e.status === 'active').length}
                   </p>
                   <p className="text-sm text-slate-600">Active Events</p>
                 </div>
@@ -84,7 +159,7 @@ export default function PlannerDashboard() {
                   <Package className="h-6 w-6 text-secondary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">0</p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.quotesReceived}</p>
                   <p className="text-sm text-slate-600">Quotes Received</p>
                 </div>
               </div>
@@ -98,7 +173,7 @@ export default function PlannerDashboard() {
                   <MessageSquare className="h-6 w-6 text-accent-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">0</p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.unreadMessages}</p>
                   <p className="text-sm text-slate-600">Unread Messages</p>
                 </div>
               </div>
@@ -113,7 +188,7 @@ export default function PlannerDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-slate-900">
-                    {mockEvents.filter((e) => e.status === 'booked').length}
+                    {events.filter((e) => e.status === 'booked').length}
                   </p>
                   <p className="text-sm text-slate-600">Booked Events</p>
                 </div>
@@ -139,9 +214,9 @@ export default function PlannerDashboard() {
             </div>
           </div>
 
-          {mockEvents.length > 0 ? (
+          {events.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-2">
-              {mockEvents.map((event) => (
+              {events.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>

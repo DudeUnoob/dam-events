@@ -1,67 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
 import { MessageThread } from '@/components/messaging/MessageThread';
-import { Lead, Message } from '@/types';
+import { Lead } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { MessageSquare } from 'lucide-react';
 
-// Mock data
-const mockLeads: (Lead & { unreadCount: number })[] = [
-  {
-    id: '1',
-    event_id: 'event-1',
-    vendor_id: 'vendor-1',
-    package_id: 'package-1',
-    planner_id: 'planner-1',
-    status: 'quoted',
-    created_at: '2025-01-20T10:00:00Z',
-    updated_at: '2025-01-20T10:00:00Z',
-    unreadCount: 2,
-    event: {
-      id: 'event-1',
-      planner_id: 'planner-1',
-      event_date: '2025-03-15',
-      budget: 5000,
-      guest_count: 150,
-      location_address: '123 University Ave, Austin, TX',
-      location_lat: 30.2672,
-      location_lng: -97.7431,
-      event_type: 'Spring Formal',
-      status: 'active',
-      created_at: '2025-01-15T10:00:00Z',
-      updated_at: '2025-01-15T10:00:00Z',
-    },
-  },
-];
-
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    lead_id: '1',
-    sender_id: 'vendor-1',
-    receiver_id: 'planner-1',
-    content: 'Thank you for your interest! I would love to host your Spring Formal. Our venue can accommodate 150 guests comfortably.',
-    read: true,
-    created_at: '2025-01-20T11:00:00Z',
-  },
-  {
-    id: '2',
-    lead_id: '1',
-    sender_id: 'planner-1',
-    receiver_id: 'vendor-1',
-    content: 'Great! Can you provide more details about the catering options? We have several dietary restrictions to accommodate.',
-    read: true,
-    created_at: '2025-01-20T14:00:00Z',
-  },
-];
-
 export default function MessagesPage() {
-  const [selectedLead, setSelectedLead] = useState<string | null>(mockLeads[0]?.id || null);
+  const { user, loading: authLoading } = useAuth();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<string | null>(null);
 
-  const currentLead = mockLeads.find((l) => l.id === selectedLead);
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const fetchLeads = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const role = user.role === 'vendor' ? 'vendor' : 'planner';
+        const response = await fetch(`/api/leads?role=${role}`);
+        const data = await response.json();
+
+        if (response.ok && data.data) {
+          setLeads(data.data);
+          // Auto-select first lead
+          if (data.data.length > 0 && !selectedLead) {
+            setSelectedLead(data.data[0].id);
+          }
+        } else {
+          setError(data.error?.message || 'Failed to fetch conversations');
+        }
+      } catch (err) {
+        console.error('Error fetching leads:', err);
+        setError('Failed to load conversations');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeads();
+  }, [user, authLoading]);
+
+  const currentLead = leads.find((l) => l.id === selectedLead);
 
   return (
     <div className="h-[calc(100vh-4rem)] bg-slate-50">
@@ -74,8 +63,18 @@ export default function MessagesPage() {
           </div>
 
           <div className="overflow-y-auto">
-            {mockLeads.length > 0 ? (
-              mockLeads.map((lead) => (
+            {loading ? (
+              <div className="p-4 space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center">
+                <ErrorState title="Failed to load conversations" message={error} />
+              </div>
+            ) : leads.length > 0 ? (
+              leads.map((lead) => (
                 <button
                   key={lead.id}
                   onClick={() => setSelectedLead(lead.id)}
@@ -87,19 +86,21 @@ export default function MessagesPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium text-slate-900">
-                          {lead.event?.event_type}
+                          {user?.role === 'vendor'
+                            ? lead.event?.event_type || 'Event'
+                            : lead.vendor?.business_name || 'Vendor'}
                         </h3>
-                        {lead.unreadCount > 0 && (
-                          <Badge variant="danger" className="text-xs">
-                            {lead.unreadCount}
-                          </Badge>
-                        )}
+                        <Badge variant={lead.status === 'booked' ? 'success' : 'default'}>
+                          {lead.status}
+                        </Badge>
                       </div>
                       <p className="mt-1 text-sm text-slate-600">
-                        {formatDate(lead.event?.event_date || '')}
+                        {user?.role === 'vendor'
+                          ? `${lead.event?.guest_count} guests • $${lead.event?.budget?.toLocaleString()}`
+                          : lead.package?.name || 'Package'}
                       </p>
-                      <p className="mt-1 line-clamp-1 text-xs text-slate-500">
-                        Last message preview...
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatDate(lead.created_at)}
                       </p>
                     </div>
                   </div>
@@ -109,6 +110,11 @@ export default function MessagesPage() {
               <div className="p-8 text-center">
                 <MessageSquare className="mx-auto h-12 w-12 text-slate-300" />
                 <p className="mt-4 text-sm text-slate-500">No conversations yet</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {user?.role === 'vendor'
+                    ? 'Wait for planners to request quotes'
+                    : 'Request quotes from packages to start conversations'}
+                </p>
               </div>
             )}
           </div>
@@ -132,8 +138,12 @@ export default function MessagesPage() {
 
               <MessageThread
                 leadId={currentLead.id}
-                currentUserId="planner-1"
-                initialMessages={mockMessages}
+                currentUserId={user!.id}
+                receiverId={
+                  user?.role === 'vendor'
+                    ? currentLead.planner_id
+                    : currentLead.vendor?.user_id || ''
+                }
               />
             </Card>
           ) : (
