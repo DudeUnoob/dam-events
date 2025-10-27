@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { PhotoUpload } from '@/components/vendor/PhotoUpload';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/shared/ErrorState';
 import { ArrowLeft, Package, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,12 +29,15 @@ interface PackageFormData {
   status: 'draft' | 'published';
 }
 
-export default function CreatePackagePage() {
+export default function EditPackagePage() {
+  const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [packageId, setPackageId] = useState<string | null>(null);
+
+  const packageId = params.id as string;
 
   const [formData, setFormData] = useState<PackageFormData>({
     name: '',
@@ -49,6 +54,48 @@ export default function CreatePackagePage() {
     photos: [],
     status: 'published',
   });
+
+  // Fetch existing package data
+  useEffect(() => {
+    const fetchPackage = async () => {
+      try {
+        const response = await fetch(`/api/packages/${packageId}`);
+        const data = await response.json();
+
+        if (!response.ok || !data.data) {
+          throw new Error(data.error?.message || 'Package not found');
+        }
+
+        const pkg = data.data;
+
+        // Convert database format to form format
+        setFormData({
+          name: pkg.name || '',
+          description: pkg.description || '',
+          priceMin: pkg.price_min || 0,
+          priceMax: pkg.price_max || 0,
+          capacity: pkg.capacity || 0,
+          venueName: pkg.venue_details?.name || '',
+          venueAmenities: pkg.venue_details?.amenities || [],
+          cateringMenuOptions: pkg.catering_details?.menu_options?.join('\n') || '',
+          cateringDietary: pkg.catering_details?.dietary_accommodations || [],
+          entertainmentType: pkg.entertainment_details?.type || '',
+          entertainmentEquipment: pkg.entertainment_details?.equipment?.join('\n') || '',
+          photos: pkg.photos || [],
+          status: pkg.status || 'draft',
+        });
+      } catch (err: any) {
+        console.error('Error fetching package:', err);
+        setError(err.message || 'Failed to load package');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (packageId) {
+      fetchPackage();
+    }
+  }, [packageId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -82,35 +129,14 @@ export default function CreatePackagePage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, status: 'draft' | 'published') => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, status?: 'draft' | 'published') => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setError(null);
 
     try {
-      // First get vendor ID
-      const userResponse = await fetch('/api/auth/user');
-      const userData = await userResponse.json();
-
-      if (!userData.data) {
-        throw new Error('Please complete vendor onboarding first');
-      }
-
-      // Get vendor profile
-      const vendorResponse = await fetch('/api/vendors');
-      const vendorData = await vendorResponse.json();
-
-      if (!vendorData.data) {
-        setError('Please complete your vendor profile before creating packages');
-        setLoading(false);
-        return;
-      }
-
-      const vendorId = vendorData.data.id;
-
       // Prepare package data
       const packageData = {
-        vendorId: vendorId,
         name: formData.name,
         description: formData.description,
         priceMin: formData.priceMin,
@@ -135,12 +161,12 @@ export default function CreatePackagePage() {
               equipment: formData.entertainmentEquipment.split('\n').filter(Boolean),
             }
           : null,
-        status,
+        status: status || formData.status,
       };
 
-      // Create package
-      const response = await fetch('/api/packages', {
-        method: 'POST',
+      // Update package
+      const response = await fetch(`/api/packages/${packageId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -150,26 +176,57 @@ export default function CreatePackagePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to create package');
+        throw new Error(data.error?.message || 'Failed to update package');
       }
 
-      // Success! Redirect to packages list or dashboard
-      router.push('/vendor/dashboard');
+      // Success! Redirect to packages list
+      router.push('/vendor/packages');
     } catch (err: any) {
-      console.error('Error creating package:', err);
-      setError(err.message || 'Failed to create package. Please try again.');
-      setLoading(false);
+      console.error('Error updating package:', err);
+      setError(err.message || 'Failed to update package. Please try again.');
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8">
+        <div className="mx-auto max-w-4xl px-4">
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !formData.name) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8">
+        <div className="mx-auto max-w-4xl px-4">
+          <ErrorState
+            title="Failed to load package"
+            message={error}
+          />
+          <div className="mt-4">
+            <Button variant="outline" asChild>
+              <Link href="/vendor/packages">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Packages
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Back Button */}
         <Button variant="ghost" size="sm" className="mb-6" asChild>
-          <Link href="/vendor/dashboard">
+          <Link href="/vendor/packages">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+            Back to Packages
           </Link>
         </Button>
 
@@ -180,9 +237,9 @@ export default function CreatePackagePage() {
                 <Package className="h-6 w-6 text-primary-600" />
               </div>
               <div>
-                <CardTitle>Create Event Package</CardTitle>
+                <CardTitle>Edit Event Package</CardTitle>
                 <CardDescription>
-                  Bundle your venue, catering, and entertainment into one package
+                  Update your package details and pricing
                 </CardDescription>
               </div>
             </div>
@@ -195,7 +252,7 @@ export default function CreatePackagePage() {
               </div>
             )}
 
-            <form onSubmit={(e) => handleSubmit(e, 'published')} className="space-y-8">
+            <form onSubmit={(e) => handleSubmit(e)} className="space-y-8">
               {/* Basic Information */}
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-slate-900">Basic Information</h3>
@@ -300,7 +357,7 @@ export default function CreatePackagePage() {
                   value={formData.cateringMenuOptions}
                   onChange={handleChange}
                   label="Menu Options"
-                  placeholder="Describe available menu options (one per line)&#10;e.g., Buffet Style&#10;Plated Dinner&#10;Appetizers & Hors d'oeuvres"
+                  placeholder="Describe available menu options (one per line)"
                   rows={4}
                 />
 
@@ -344,7 +401,7 @@ export default function CreatePackagePage() {
                   value={formData.entertainmentEquipment}
                   onChange={handleChange}
                   label="Equipment Provided"
-                  placeholder="List any entertainment equipment included (one per line)&#10;e.g., Sound System&#10;Lighting&#10;Microphones"
+                  placeholder="List any entertainment equipment included (one per line)"
                   rows={3}
                 />
               </div>
@@ -358,21 +415,13 @@ export default function CreatePackagePage() {
                   </p>
                 </div>
 
-                {packageId || formData.name ? (
-                  <PhotoUpload
-                    bucketName="package-photos"
-                    folderId={packageId || formData.name.replace(/\s+/g, '-').toLowerCase()}
-                    maxPhotos={15}
-                    existingPhotos={formData.photos}
-                    onUpload={handlePhotosUploaded}
-                  />
-                ) : (
-                  <div className="rounded-lg border-2 border-dashed border-slate-300 p-8 text-center">
-                    <p className="text-sm text-slate-600">
-                      Please fill in the package name above to enable photo uploads
-                    </p>
-                  </div>
-                )}
+                <PhotoUpload
+                  bucketName="package-photos"
+                  folderId={packageId}
+                  maxPhotos={15}
+                  existingPhotos={formData.photos}
+                  onUpload={handlePhotosUploaded}
+                />
               </div>
 
               {/* Form Actions */}
@@ -384,21 +433,35 @@ export default function CreatePackagePage() {
                   onClick={(e) => {
                     const form = e.currentTarget.closest('form');
                     if (form) {
-                      handleSubmit(new Event('submit') as any, 'draft');
+                      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                      Object.defineProperty(submitEvent, 'target', { value: form, enumerable: true });
+                      handleSubmit(submitEvent as any, 'draft');
                     }
                   }}
-                  disabled={loading}
+                  disabled={saving}
                 >
-                  {loading ? 'Saving...' : 'Save as Draft'}
+                  {saving ? 'Saving...' : 'Save as Draft'}
                 </Button>
-                <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? (
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={saving}
+                  onClick={(e) => {
+                    const form = e.currentTarget.closest('form');
+                    if (form) {
+                      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                      Object.defineProperty(submitEvent, 'target', { value: form, enumerable: true });
+                      handleSubmit(submitEvent as any, 'published');
+                    }
+                  }}
+                >
+                  {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
+                      Saving...
                     </>
                   ) : (
-                    'Publish Package'
+                    'Save & Publish'
                   )}
                 </Button>
               </div>

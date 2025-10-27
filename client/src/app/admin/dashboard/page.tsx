@@ -11,9 +11,17 @@ import { Vendor } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Shield, CheckCircle, XCircle, Clock, Users, Package, RefreshCw } from 'lucide-react';
 
+interface AdminStats {
+  pendingVendors: number;
+  verifiedVendors: number;
+  activePackages: number;
+  totalUsers: number;
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -23,13 +31,23 @@ export default function AdminDashboard() {
     setError(null);
 
     try {
-      const response = await fetch('/api/admin/vendors?status=pending');
-      const data = await response.json();
+      // Fetch both vendors and stats in parallel
+      const [vendorsResponse, statsResponse] = await Promise.all([
+        fetch('/api/admin/vendors?status=pending'),
+        fetch('/api/admin/stats'),
+      ]);
 
-      if (response.ok && data.data) {
-        setVendors(data.data);
+      const vendorsData = await vendorsResponse.json();
+      const statsData = await statsResponse.json();
+
+      if (vendorsResponse.ok && vendorsData.data) {
+        setVendors(vendorsData.data);
       } else {
-        setError(data.error?.message || 'Failed to fetch vendors');
+        setError(vendorsData.error?.message || 'Failed to fetch vendors');
+      }
+
+      if (statsResponse.ok && statsData.data) {
+        setStats(statsData.data);
       }
     } catch (err) {
       console.error('Error fetching vendors:', err);
@@ -137,7 +155,9 @@ export default function AdminDashboard() {
                   <Clock className="h-6 w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{vendors.length}</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.pendingVendors : vendors.length}
+                  </p>
                   <p className="text-sm text-slate-600">Pending Review</p>
                 </div>
               </div>
@@ -151,7 +171,9 @@ export default function AdminDashboard() {
                   <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">20</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.verifiedVendors : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Verified Vendors</p>
                 </div>
               </div>
@@ -165,7 +187,9 @@ export default function AdminDashboard() {
                   <Package className="h-6 w-6 text-primary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">45</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.activePackages : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Active Packages</p>
                 </div>
               </div>
@@ -179,7 +203,9 @@ export default function AdminDashboard() {
                   <Users className="h-6 w-6 text-secondary-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">120</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats ? stats.totalUsers : '—'}
+                  </p>
                   <p className="text-sm text-slate-600">Total Users</p>
                 </div>
               </div>

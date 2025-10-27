@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     .from('users')
     .select('role')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   // If profile doesn't exist, redirect to complete signup
   if (profileError || !profile?.role) {

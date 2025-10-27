@@ -1,5 +1,6 @@
 /**
  * Vendor API Routes
+ * GET /api/vendors - Get current user's vendor profile
  * POST /api/vendors - Create vendor profile
  */
 
@@ -15,6 +16,52 @@ const vendorSchema = z.object({
   services: z.array(z.enum(['venue', 'catering', 'entertainment'])).min(1, 'At least one service is required'),
   locationAddress: z.string().min(1, 'Location address is required'),
 });
+
+export async function GET(request: Request) {
+  try {
+    const supabase = createClient();
+
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Unauthorized', code: 'AUTH_ERROR' } },
+        { status: 401 }
+      );
+    }
+
+    // Get vendor profile for current user
+    const { data: vendor, error: vendorError } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (vendorError) {
+      console.error('Error fetching vendor:', vendorError);
+      return NextResponse.json(
+        { data: null, error: { message: vendorError.message, code: 'DB_ERROR' } },
+        { status: 500 }
+      );
+    }
+
+    if (!vendor) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Vendor profile not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ data: vendor, error: null }, { status: 200 });
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return NextResponse.json(
+      { data: null, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +96,7 @@ export async function POST(request: Request) {
       .from('vendors')
       .select('id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existingVendor) {
       return NextResponse.json(

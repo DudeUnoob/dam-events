@@ -2,6 +2,8 @@
  * Package API Routes
  * POST /api/packages - Create package
  * GET /api/packages - Search/filter packages
+ * GET /api/packages?vendorId={id} - Get packages for specific vendor
+ * GET /api/packages?eventId={id} - Get matched packages for event
  */
 
 import { createClient } from '@/lib/supabase/route-handler';
@@ -132,6 +134,27 @@ export async function GET(request: Request) {
 
     // Optional: event ID for matching
     const eventId = searchParams.get('eventId');
+    // Optional: vendor ID for filtering vendor's own packages
+    const vendorId = searchParams.get('vendorId');
+
+    // If vendorId is provided, return packages for that vendor (including drafts)
+    if (vendorId) {
+      const { data: packages, error: pkgError } = await supabase
+        .from('packages')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .order('created_at', { ascending: false });
+
+      if (pkgError) {
+        console.error('Error fetching vendor packages:', pkgError);
+        return NextResponse.json(
+          { data: null, error: { message: pkgError.message, code: 'DB_ERROR' } },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ data: packages, error: null }, { status: 200 });
+    }
 
     // If eventId is provided, use matching algorithm
     if (eventId) {

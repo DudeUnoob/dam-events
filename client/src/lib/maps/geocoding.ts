@@ -1,12 +1,8 @@
 /**
  * Geocoding Helper
- * Converts addresses to lat/lng coordinates
+ * Converts addresses to lat/lng coordinates using Google Maps API
  *
- * STUBBED VERSION - Returns mock coordinates
- * To implement Google Maps API:
- * 1. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to .env.local
- * 2. Uncomment the real implementation below
- * 3. npm install @googlemaps/google-maps-services-js
+ * Fallback to stub if API key not configured
  */
 
 export interface GeocodeResult {
@@ -17,15 +13,74 @@ export interface GeocodeResult {
 
 /**
  * Geocode an address to lat/lng
- * Currently returns mock data for Austin, TX area
+ * Uses Google Maps Geocoding API if key is available, otherwise returns mock data
  */
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
-  console.log('[GEOCODING - STUBBED] Geocoding address:', address);
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  // Stubbed implementation - returns mock coordinates near Austin, TX
-  // In production, this would call Google Maps Geocoding API
+  // If no API key, use mock data (for development/testing)
+  if (!apiKey) {
+    console.log('[GEOCODING - STUB MODE] No API key configured, using mock data for:', address);
+    return getMockGeocodeResult(address);
+  }
 
-  // Mock different areas in Austin for testing
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK' || data.results.length === 0) {
+      console.error('Geocoding failed:', data.status);
+      return getMockGeocodeResult(address); // Fallback to mock
+    }
+
+    const result = data.results[0];
+    return {
+      lat: result.geometry.location.lat,
+      lng: result.geometry.location.lng,
+      formatted_address: result.formatted_address,
+    };
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return getMockGeocodeResult(address); // Fallback to mock on error
+  }
+}
+
+/**
+ * Reverse geocode lat/lng to address
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    console.log('[GEOCODING - STUB MODE] No API key configured');
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)} (Austin, TX area)`;
+  }
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK' || data.results.length === 0) {
+      console.error('Reverse geocoding failed:', data.status);
+      return null;
+    }
+
+    return data.results[0].formatted_address;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return null;
+  }
+}
+
+/**
+ * Mock geocode result for development/testing
+ */
+function getMockGeocodeResult(address: string): GeocodeResult {
   const mockCoordinates: Record<string, GeocodeResult> = {
     'downtown': {
       lat: 30.2672,
@@ -49,7 +104,6 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
     }
   };
 
-  // Simple keyword matching for stub
   const addressLower = address.toLowerCase();
   if (addressLower.includes('downtown') || addressLower.includes('congress')) {
     return mockCoordinates.downtown;
@@ -61,70 +115,5 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
     return mockCoordinates.north;
   }
 
-  // Default to downtown Austin
   return mockCoordinates.downtown;
 }
-
-/**
- * Reverse geocode lat/lng to address
- */
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
-  console.log('[GEOCODING - STUBBED] Reverse geocoding:', { lat, lng });
-
-  // Stubbed implementation
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)} (Austin, TX area)`;
-}
-
-/*
-// REAL IMPLEMENTATION (uncomment when ready to use Google Maps API)
-// npm install @googlemaps/google-maps-services-js
-
-import { Client } from '@googlemaps/google-maps-services-js';
-
-const client = new Client({});
-
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
-  try {
-    const response = await client.geocode({
-      params: {
-        address,
-        key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-      },
-    });
-
-    if (response.data.results.length === 0) {
-      return null;
-    }
-
-    const result = response.data.results[0];
-    return {
-      lat: result.geometry.location.lat,
-      lng: result.geometry.location.lng,
-      formatted_address: result.formatted_address,
-    };
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return null;
-  }
-}
-
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
-  try {
-    const response = await client.reverseGeocode({
-      params: {
-        latlng: { lat, lng },
-        key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-      },
-    });
-
-    if (response.data.results.length === 0) {
-      return null;
-    }
-
-    return response.data.results[0].formatted_address;
-  } catch (error) {
-    console.error('Reverse geocoding error:', error);
-    return null;
-  }
-}
-*/

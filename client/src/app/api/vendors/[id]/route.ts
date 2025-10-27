@@ -15,6 +15,7 @@ const updateVendorSchema = z.object({
   description: z.string().min(10).optional(),
   services: z.array(z.enum(['venue', 'catering', 'entertainment'])).min(1).optional(),
   locationAddress: z.string().min(1).optional(),
+  photoUrls: z.array(z.string()).optional(),
 });
 
 export async function GET(
@@ -111,6 +112,9 @@ export async function PUT(
     }
     if (validatedData.services) {
       updateData.services = validatedData.services;
+    }
+    if (validatedData.photoUrls !== undefined) {
+      updateData.photo_urls = validatedData.photoUrls;
     }
     if (validatedData.locationAddress) {
       const geocodeResult = await geocodeAddress(validatedData.locationAddress);

@@ -2,6 +2,7 @@
  * Package API Routes (by ID)
  * GET /api/packages/[id] - Get package details
  * PUT /api/packages/[id] - Update package
+ * DELETE /api/packages/[id] - Delete package
  */
 
 import { createClient } from '@/lib/supabase/route-handler';
@@ -103,7 +104,7 @@ export async function PUT(
       .from('packages')
       .select(`
         *,
-        vendors!inner(user_id)
+        vendors!inner(user_id, status)
       `)
       .eq('id', id)
       .single();
@@ -125,6 +126,20 @@ export async function PUT(
     // Parse and validate request body
     const body = await request.json();
     const validatedData = updatePackageSchema.parse(body);
+
+    // Prevent unverified vendors from publishing
+    if (validatedData.status === 'published' && pkg.vendors.status !== 'verified') {
+      return NextResponse.json(
+        {
+          data: null,
+          error: {
+            message: 'Only verified vendors can publish packages. Please wait for admin approval.',
+            code: 'VENDOR_NOT_VERIFIED'
+          }
+        },
+        { status: 403 }
+      );
+    }
 
     // Prepare update data
     const updateData: any = {};
@@ -182,6 +197,72 @@ export async function PUT(
       );
     }
 
+    console.error('Unexpected error:', error);
+    return NextResponse.json(
+      { data: null, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = createClient();
+    const { id } = params;
+
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Unauthorized', code: 'AUTH_ERROR' } },
+        { status: 401 }
+      );
+    }
+
+    // Get package and verify ownership
+    const { data: pkg, error: pkgError } = await supabase
+      .from('packages')
+      .select(`
+        *,
+        vendors!inner(user_id)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (pkgError) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Package not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      );
+    }
+
+    if (pkg.vendors.user_id !== user.id) {
+      return NextResponse.json(
+        { data: null, error: { message: 'You can only delete your own packages', code: 'FORBIDDEN' } },
+        { status: 403 }
+      );
+    }
+
+    // Delete package
+    const { error: deleteError } = await supabase
+      .from('packages')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('Error deleting package:', deleteError);
+      return NextResponse.json(
+        { data: null, error: { message: deleteError.message, code: 'DB_ERROR' } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data: { id }, error: null }, { status: 200 });
+  } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
       { data: null, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } },

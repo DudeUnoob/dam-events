@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       .select('id')
       .eq('event_id', validatedData.eventId)
       .eq('package_id', validatedData.packageId)
-      .single();
+      .maybeSingle();
 
     if (existingLead) {
       return NextResponse.json(
@@ -173,7 +173,7 @@ export async function GET(request: Request) {
         .from('vendors')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!vendor) {
         return NextResponse.json({ data: [], error: null }, { status: 200 });

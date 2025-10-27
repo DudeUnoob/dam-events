@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Calendar, Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function Navigation() {
@@ -12,6 +12,32 @@ export function Navigation() {
   const { user, loading, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread message count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/messages/unread');
+        const data = await response.json();
+
+        if (response.ok && data.data) {
+          setUnreadCount(data.data.count);
+        }
+      } catch (err) {
+        console.error('Error fetching unread count:', err);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Poll every 30 seconds for new messages
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Don't show navigation on auth pages
   if (pathname?.startsWith('/login') || pathname?.startsWith('/signup')) {
@@ -63,10 +89,15 @@ export function Navigation() {
 
                 <Link
                   href="/messages"
-                  className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
+                  className="relative text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
                 >
                   <MessageSquare className="inline h-4 w-4 mr-1.5" />
                   Messages
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
 
                 {/* User Menu */}
@@ -189,11 +220,16 @@ export function Navigation() {
 
                 <Link
                   href="/messages"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
+                  className="relative flex items-center gap-2 rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <MessageSquare className="h-4 w-4" />
                   Messages
+                  {unreadCount > 0 && (
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
 
                 <div className="border-t border-slate-200 pt-4 mt-4">

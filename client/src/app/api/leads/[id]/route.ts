@@ -64,7 +64,7 @@ export async function GET(
       .from('vendors')
       .select('id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const isPlanner = lead.planner_id === user.id;
     const isVendor = vendor && lead.vendor_id === vendor.id;

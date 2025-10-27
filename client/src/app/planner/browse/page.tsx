@@ -22,6 +22,10 @@ export default function BrowsePackagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [budgetFilter, setBudgetFilter] = useState('');
+  const [capacityFilter, setCapacityFilter] = useState('');
+  const [distanceFilter, setDistanceFilter] = useState('');
+  const [servicesFilter, setServicesFilter] = useState('');
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -59,15 +63,70 @@ export default function BrowsePackagesPage() {
     fetchPackages();
   }, [eventId]);
 
-  // Filter packages based on search query
+  // Filter packages based on all criteria
   const filteredPackages = packages.filter(pkg => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      pkg.name.toLowerCase().includes(query) ||
-      pkg.description.toLowerCase().includes(query) ||
-      pkg.vendor?.business_name.toLowerCase().includes(query)
-    );
+    // Search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        pkg.name.toLowerCase().includes(query) ||
+        pkg.description.toLowerCase().includes(query) ||
+        pkg.vendor?.business_name.toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+    }
+
+    // Budget filter
+    if (budgetFilter) {
+      if (budgetFilter === '0-2000') {
+        if (pkg.price_min > 2000) return false;
+      } else if (budgetFilter === '2000-4000') {
+        if (pkg.price_max < 2000 || pkg.price_min > 4000) return false;
+      } else if (budgetFilter === '4000-6000') {
+        if (pkg.price_max < 4000 || pkg.price_min > 6000) return false;
+      } else if (budgetFilter === '6000+') {
+        if (pkg.price_max < 6000) return false;
+      }
+    }
+
+    // Capacity filter
+    if (capacityFilter) {
+      if (capacityFilter === '0-50') {
+        if (pkg.capacity > 50) return false;
+      } else if (capacityFilter === '50-100') {
+        if (pkg.capacity < 50 || pkg.capacity > 100) return false;
+      } else if (capacityFilter === '100-200') {
+        if (pkg.capacity < 100 || pkg.capacity > 200) return false;
+      } else if (capacityFilter === '200+') {
+        if (pkg.capacity < 200) return false;
+      }
+    }
+
+    // Distance filter (only if distance is available from matching)
+    if (distanceFilter && pkg.distance !== undefined) {
+      const distance = pkg.distance;
+      if (distanceFilter === '0-5') {
+        if (distance > 5) return false;
+      } else if (distanceFilter === '5-10') {
+        if (distance < 5 || distance > 10) return false;
+      } else if (distanceFilter === '10-20') {
+        if (distance < 10 || distance > 20) return false;
+      } else if (distanceFilter === '20+') {
+        if (distance < 20) return false;
+      }
+    }
+
+    // Services filter
+    if (servicesFilter) {
+      if (servicesFilter === 'venue') {
+        if (!pkg.venue_details) return false;
+      } else if (servicesFilter === 'venue-catering') {
+        if (!pkg.venue_details || !pkg.catering_details) return false;
+      } else if (servicesFilter === 'full') {
+        if (!pkg.venue_details || !pkg.catering_details || !pkg.entertainment_details) return false;
+      }
+    }
+
+    return true;
   });
 
   if (loading) {
@@ -167,36 +226,87 @@ export default function BrowsePackagesPage() {
             {/* Expanded Filters */}
             {showFilters && (
               <div className="mt-6 grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-2 lg:grid-cols-4">
-                <Select label="Budget">
-                  <option value="">Any budget</option>
-                  <option value="0-2000">Under $2,000</option>
-                  <option value="2000-4000">$2,000 - $4,000</option>
-                  <option value="4000-6000">$4,000 - $6,000</option>
-                  <option value="6000+">$6,000+</option>
-                </Select>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Budget</label>
+                  <select
+                    value={budgetFilter}
+                    onChange={(e) => setBudgetFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">Any budget</option>
+                    <option value="0-2000">Under $2,000</option>
+                    <option value="2000-4000">$2,000 - $4,000</option>
+                    <option value="4000-6000">$4,000 - $6,000</option>
+                    <option value="6000+">$6,000+</option>
+                  </select>
+                </div>
 
-                <Select label="Capacity">
-                  <option value="">Any size</option>
-                  <option value="0-50">Up to 50</option>
-                  <option value="50-100">50 - 100</option>
-                  <option value="100-200">100 - 200</option>
-                  <option value="200+">200+</option>
-                </Select>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Capacity</label>
+                  <select
+                    value={capacityFilter}
+                    onChange={(e) => setCapacityFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">Any size</option>
+                    <option value="0-50">Up to 50</option>
+                    <option value="50-100">50 - 100</option>
+                    <option value="100-200">100 - 200</option>
+                    <option value="200+">200+</option>
+                  </select>
+                </div>
 
-                <Select label="Distance">
-                  <option value="">Any distance</option>
-                  <option value="0-5">Within 5 miles</option>
-                  <option value="5-10">5 - 10 miles</option>
-                  <option value="10-20">10 - 20 miles</option>
-                  <option value="20+">20+ miles</option>
-                </Select>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Distance</label>
+                  <select
+                    value={distanceFilter}
+                    onChange={(e) => setDistanceFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    disabled={!eventId}
+                  >
+                    <option value="">Any distance</option>
+                    <option value="0-5">Within 5 miles</option>
+                    <option value="5-10">5 - 10 miles</option>
+                    <option value="10-20">10 - 20 miles</option>
+                    <option value="20+">20+ miles</option>
+                  </select>
+                  {!eventId && (
+                    <p className="mt-1 text-xs text-slate-500">Available with event matching</p>
+                  )}
+                </div>
 
-                <Select label="Services">
-                  <option value="">All services</option>
-                  <option value="venue">Venue Only</option>
-                  <option value="venue-catering">Venue + Catering</option>
-                  <option value="full">Full Package</option>
-                </Select>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Services</label>
+                  <select
+                    value={servicesFilter}
+                    onChange={(e) => setServicesFilter(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">All services</option>
+                    <option value="venue">Venue Only</option>
+                    <option value="venue-catering">Venue + Catering</option>
+                    <option value="full">Full Package</option>
+                  </select>
+                </div>
+
+                {/* Clear Filters Button */}
+                {(budgetFilter || capacityFilter || distanceFilter || servicesFilter) && (
+                  <div className="sm:col-span-2 lg:col-span-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBudgetFilter('');
+                        setCapacityFilter('');
+                        setDistanceFilter('');
+                        setServicesFilter('');
+                      }}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Clear All Filters
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
