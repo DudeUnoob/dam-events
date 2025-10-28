@@ -136,6 +136,8 @@ export async function GET(request: Request) {
     const eventId = searchParams.get('eventId');
     // Optional: vendor ID for filtering vendor's own packages
     const vendorId = searchParams.get('vendorId');
+    // Optional: include all packages regardless of status (for development/testing)
+    const includeAll = searchParams.get('includeAll') === 'true';
 
     // If vendorId is provided, return packages for that vendor (including drafts)
     if (vendorId) {
@@ -172,15 +174,22 @@ export async function GET(request: Request) {
         );
       }
 
-      // Get all published packages with vendor info
-      const { data: packages, error: pkgError } = await supabase
+      // Get all published packages with vendor info (or all packages if includeAll=true)
+      let matchQuery = supabase
         .from('packages')
         .select(`
           *,
-          vendors!inner(*)
-        `)
-        .eq('status', 'published')
-        .eq('vendors.status', 'verified');
+          vendors(*)
+        `);
+
+      // Only apply status filters if not including all packages
+      if (!includeAll) {
+        matchQuery = matchQuery
+          .eq('status', 'published')
+          .eq('vendors.status', 'verified');
+      }
+
+      const { data: packages, error: pkgError } = await matchQuery;
 
       if (pkgError) {
         console.error('Error fetching packages:', pkgError);
@@ -190,11 +199,13 @@ export async function GET(request: Request) {
         );
       }
 
-      // Transform packages for matching algorithm
-      const transformedPackages = packages.map((pkg: any) => ({
-        ...pkg,
-        vendor: pkg.vendors,
-      }));
+      // Filter out packages without vendor data and transform for matching algorithm
+      const transformedPackages = (packages || [])
+        .filter((pkg: any) => pkg.vendors) // Only include packages with vendor data
+        .map((pkg: any) => ({
+          ...pkg,
+          vendor: pkg.vendors,
+        }));
 
       // Apply matching algorithm
       const matchedPackages = matchPackages(transformedPackages, event);
@@ -202,16 +213,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: matchedPackages, error: null }, { status: 200 });
     }
 
-    // Otherwise, return all published packages
-    const { data: packages, error: pkgError } = await supabase
+    // Otherwise, return all published packages (or all packages if includeAll=true)
+    let query = supabase
       .from('packages')
       .select(`
         *,
-        vendors!inner(*)
+        vendors(*)
       `)
-      .eq('status', 'published')
-      .eq('vendors.status', 'verified')
       .order('created_at', { ascending: false });
+
+    // Only apply status filters if not including all packages
+    if (!includeAll) {
+      query = query
+        .eq('status', 'published')
+        .eq('vendors.status', 'verified');
+    }
+
+    const { data: packages, error: pkgError } = await query;
 
     if (pkgError) {
       console.error('Error fetching packages:', pkgError);
@@ -221,11 +239,26 @@ export async function GET(request: Request) {
       );
     }
 
-    // Transform packages
-    const transformedPackages = packages.map((pkg: any) => ({
-      ...pkg,
-      vendor: pkg.vendors,
-    }));
+    // Filter out packages without vendor data and transform
+    // DEBUG: Log what we got from the database
+    console.log('📦 Total packages from DB:', packages?.length || 0);
+    if (packages && packages.length > 0) {
+      console.log('📦 First package sample:', JSON.stringify(packages[0], null, 2));
+      console.log('📦 Vendors field exists?', 'vendors' in packages[0]);
+      console.log('📦 Vendors value:', packages[0].vendors);
+    }
+
+    const transformedPackages = (packages || [])
+      // TEMPORARILY COMMENTED FOR DEBUGGING - uncomment after fixing vendor relationship
+      // .filter((pkg: any) => pkg.vendors) // Only include packages with vendor data
+      .map((pkg: any) => ({
+        ...pkg,
+        vendor: pkg.vendors || null, // Allow null vendors during debugging
+        distance: null, // No event context, so no distance calculation
+        score: 0, // Default score
+      }));
+
+    console.log('📦 Transformed packages count:', transformedPackages.length);
 
     return NextResponse.json({ data: transformedPackages, error: null }, { status: 200 });
   } catch (error) {

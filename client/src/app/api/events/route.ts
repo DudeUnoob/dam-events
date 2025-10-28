@@ -55,6 +55,12 @@ export async function POST(request: Request) {
     // Geocode the address
     const geocodeResult = await geocodeAddress(validatedData.locationAddress);
 
+    // Log warning if geocoding failed
+    if (!geocodeResult || !geocodeResult.lat || !geocodeResult.lng) {
+      console.warn('Geocoding failed for address:', validatedData.locationAddress);
+      console.warn('Package matching may be limited without location coordinates');
+    }
+
     // Create event
     const { data: event, error: eventError } = await supabase
       .from('events')

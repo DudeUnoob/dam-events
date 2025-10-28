@@ -46,13 +46,8 @@ export async function GET(request: Request) {
       );
     }
 
-    if (!vendor) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Vendor profile not found', code: 'NOT_FOUND' } },
-        { status: 404 }
-      );
-    }
-
+    // Return null data if vendor doesn't exist (not an error - user may not have completed onboarding)
+    // Calling pages should handle the null case gracefully
     return NextResponse.json({ data: vendor, error: null }, { status: 200 });
   } catch (error) {
     console.error('Unexpected error:', error);

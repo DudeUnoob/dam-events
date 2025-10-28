@@ -40,11 +40,11 @@ export function PackageCard({ package: pkg, eventId }: PackageCardProps) {
           )}
           {pkg.distance !== undefined && (
             <Badge variant="default" className="bg-white/90 text-slate-900">
-              {pkg.distance.toFixed(1)} mi
-            </Badge>
-          )}
+              {pkg.distance?.toFixed(1)} mi
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
 
       <CardContent className="p-6">
         {/* Vendor Name */}

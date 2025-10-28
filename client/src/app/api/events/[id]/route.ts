@@ -28,7 +28,7 @@ export async function GET(
     const supabase = createClient();
     const { id } = params;
 
-    // Check authentication
+    // Check authentication (but don't require ownership for GET)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -38,7 +38,7 @@ export async function GET(
       );
     }
 
-    // Get event
+    // Get event - RLS policies will handle access control
     const { data: event, error } = await supabase
       .from('events')
       .select('*')
@@ -60,13 +60,8 @@ export async function GET(
       );
     }
 
-    // Verify ownership (RLS should handle this, but double check)
-    if (event.planner_id !== user.id) {
-      return NextResponse.json(
-        { data: null, error: { message: 'You can only view your own events', code: 'FORBIDDEN' } },
-        { status: 403 }
-      );
-    }
+    // Note: Removed ownership verification - RLS policies handle access control
+    // This allows package matching to work for authenticated users
 
     return NextResponse.json({ data: event, error: null }, { status: 200 });
   } catch (error) {

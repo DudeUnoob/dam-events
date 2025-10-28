@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { Package as PackageType } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Plus, Package, Edit, Eye, Trash2 } from 'lucide-react';
+import { Plus, Package, Edit, Eye, Trash2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function VendorPackagesPage() {
@@ -30,8 +30,16 @@ export default function VendorPackagesPage() {
         const vendorResponse = await fetch('/api/vendors');
         const vendorData = await vendorResponse.json();
 
-        if (!vendorResponse.ok || !vendorData.data) {
-          setError('Vendor profile not found');
+        if (!vendorResponse.ok) {
+          setError(vendorData.error?.message || 'Failed to fetch vendor profile');
+          setLoading(false);
+          return;
+        }
+
+        // If vendor doesn't exist yet, that's okay - show empty state
+        if (!vendorData.data) {
+          setVendorId(null);
+          setPackages([]);
           setLoading(false);
           return;
         }
@@ -127,8 +135,27 @@ export default function VendorPackagesPage() {
           </Button>
         </div>
 
-        {/* Packages Grid */}
-        {packages.length > 0 ? (
+        {/* Show message if vendor profile doesn't exist */}
+        {vendorId === null ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
+                <AlertCircle className="h-8 w-8 text-yellow-600" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                Complete Your Vendor Profile
+              </h3>
+              <p className="mb-6 text-slate-600">
+                You need to complete your vendor profile before you can create packages
+              </p>
+              <Button asChild>
+                <Link href="/vendor/onboarding">
+                  Complete Profile
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : packages.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {packages.map((pkg) => (
               <Card key={pkg.id} className="overflow-hidden">

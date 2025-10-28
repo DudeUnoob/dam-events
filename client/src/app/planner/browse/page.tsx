@@ -43,6 +43,8 @@ export default function BrowsePackagesPage() {
         }
 
         // Fetch packages (with optional event matching)
+        // TIP: Add &includeAll=true to see ALL packages regardless of status (useful for development)
+        // Example: const url = eventId ? `/api/packages?eventId=${eventId}&includeAll=true` : '/api/packages?includeAll=true';
         const url = eventId ? `/api/packages?eventId=${eventId}` : '/api/packages';
         const response = await fetch(url);
         const data = await response.json();
@@ -71,7 +73,7 @@ export default function BrowsePackagesPage() {
       const matchesSearch =
         pkg.name.toLowerCase().includes(query) ||
         pkg.description.toLowerCase().includes(query) ||
-        pkg.vendor?.business_name.toLowerCase().includes(query);
+        (pkg.vendor?.business_name?.toLowerCase().includes(query) ?? false);
       if (!matchesSearch) return false;
     }
 
