@@ -168,10 +168,7 @@ export default function VendorDashboard() {
             <ErrorState
               title="Failed to load leads"
               message={error}
-              action={{
-                label: 'Try Again',
-                onClick: fetchLeads,
-              }}
+              onRetry={fetchLeads}
             />
           ) : leads.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-2">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -10,10 +10,11 @@ import { PackageCard } from '@/components/planner/PackageCard';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { Package, Event } from '@/types';
-import { Search, Filter, X, Sparkles } from 'lucide-react';
+import { Search, Filter, X, Sparkles, Send, CheckSquare, Square } from 'lucide-react';
 
 export default function BrowsePackagesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const eventId = searchParams.get('eventId');
 
   const [packages, setPackages] = useState<Package[]>([]);
@@ -26,6 +27,8 @@ export default function BrowsePackagesPage() {
   const [capacityFilter, setCapacityFilter] = useState('');
   const [distanceFilter, setDistanceFilter] = useState('');
   const [servicesFilter, setServicesFilter] = useState('');
+  const [selectedPackages, setSelectedPackages] = useState<Set<string>>(new Set());
+  const [requestingQuotes, setRequestingQuotes] = useState(false);
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -130,6 +133,73 @@ export default function BrowsePackagesPage() {
 
     return true;
   });
+
+  // Handle package selection toggle
+  const togglePackageSelection = (packageId: string) => {
+    setSelectedPackages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(packageId)) {
+        newSet.delete(packageId);
+      } else {
+        newSet.add(packageId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all visible packages
+  const selectAll = () => {
+    setSelectedPackages(new Set(filteredPackages.map(pkg => pkg.id)));
+  };
+
+  // Clear all selections
+  const clearAll = () => {
+    setSelectedPackages(new Set());
+  };
+
+  // Request quotes for all selected packages
+  const handleRequestQuotes = async () => {
+    if (!eventId) {
+      alert('Please create an event first to request quotes');
+      router.push('/planner/events/create');
+      return;
+    }
+
+    if (selectedPackages.size === 0) {
+      alert('Please select at least one package');
+      return;
+    }
+
+    setRequestingQuotes(true);
+
+    try {
+      const results = await Promise.allSettled(
+        Array.from(selectedPackages).map(packageId =>
+          fetch('/api/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId, packageId }),
+          }).then(res => res.json())
+        )
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+
+      if (successful > 0) {
+        alert(`Successfully requested ${successful} quote${successful > 1 ? 's' : ''}!${failed > 0 ? ` ${failed} failed.` : ''}`);
+        setSelectedPackages(new Set());
+        router.push('/planner/dashboard');
+      } else {
+        throw new Error('All quote requests failed');
+      }
+    } catch (err: any) {
+      console.error('Error requesting quotes:', err);
+      alert('Failed to request quotes. Please try again.');
+    } finally {
+      setRequestingQuotes(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -314,11 +384,39 @@ export default function BrowsePackagesPage() {
           </CardContent>
         </Card>
 
-        {/* Results Count */}
+        {/* Results Count and Selection Controls */}
         <div className="mt-6 flex items-center justify-between">
           <p className="text-sm text-slate-600">
             Showing <span className="font-medium text-slate-900">{filteredPackages.length}</span> package{filteredPackages.length !== 1 ? 's' : ''}
+            {selectedPackages.size > 0 && (
+              <span className="ml-3 text-primary-600 font-medium">
+                ({selectedPackages.size} selected)
+              </span>
+            )}
           </p>
+          {eventId && filteredPackages.length > 0 && (
+            <div className="flex gap-2">
+              {selectedPackages.size > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAll}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Clear All
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAll}
+                >
+                  <CheckSquare className="mr-2 h-4 w-4" />
+                  Select All
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Package Grid */}
@@ -329,6 +427,9 @@ export default function BrowsePackagesPage() {
                 key={pkg.id}
                 package={pkg}
                 eventId={eventId || undefined}
+                selectable={!!eventId}
+                selected={selectedPackages.has(pkg.id)}
+                onToggleSelect={() => togglePackageSelection(pkg.id)}
               />
             ))}
           </div>
@@ -344,6 +445,25 @@ export default function BrowsePackagesPage() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Floating Action Button for Batch Quote Request */}
+        {eventId && selectedPackages.size > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+            <Button
+              size="lg"
+              onClick={handleRequestQuotes}
+              disabled={requestingQuotes}
+              className="shadow-lg hover:shadow-xl transition-all"
+            >
+              <Send className="mr-2 h-5 w-5" />
+              {requestingQuotes ? (
+                'Requesting Quotes...'
+              ) : (
+                `Request ${selectedPackages.size} Quote${selectedPackages.size > 1 ? 's' : ''}`
+              )}
+            </Button>
+          </div>
         )}
       </div>
     </div>

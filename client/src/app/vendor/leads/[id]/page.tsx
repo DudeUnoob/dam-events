@@ -98,10 +98,7 @@ export default function VendorLeadDetailPage() {
           <ErrorState
             title="Failed to load lead"
             message={error || 'Lead not found'}
-            action={{
-              label: 'Back to Dashboard',
-              onClick: () => router.push('/vendor/dashboard'),
-            }}
+            onRetry={() => router.push('/vendor/dashboard')}
           />
         </div>
       </div>

@@ -125,12 +125,23 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get user's events
-    const { data: events, error: eventsError } = await supabase
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const statusFilter = searchParams.get('status');
+
+    // Build query
+    let query = supabase
       .from('events')
       .select('*')
-      .eq('planner_id', user.id)
-      .order('event_date', { ascending: true });
+      .eq('planner_id', user.id);
+
+    // Apply status filter if provided
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
+    }
+
+    // Get user's events
+    const { data: events, error: eventsError } = await query.order('event_date', { ascending: true });
 
     if (eventsError) {
       console.error('Error fetching events:', eventsError);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
@@ -24,10 +24,13 @@ const EVENT_TYPES = [
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const returnTo = searchParams.get('returnTo');
 
   const [formData, setFormData] = useState({
     eventDate: '',
@@ -96,7 +99,14 @@ export default function CreateEventPage() {
       }
 
       showToast('Event created successfully!', 'success');
-      router.push(`/planner/events/${data.data.id}`);
+
+      // Redirect to returnTo URL with eventId if provided, otherwise go to event detail
+      if (returnTo) {
+        const separator = returnTo.includes('?') ? '&' : '?';
+        router.push(`${returnTo}${separator}eventId=${data.data.id}`);
+      } else {
+        router.push(`/planner/events/${data.data.id}`);
+      }
     } catch (err: any) {
       console.error('Error creating event:', err);
       setError(err.message || 'Failed to create event. Please try again.');

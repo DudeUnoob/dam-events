@@ -38,7 +38,7 @@ export async function GET(
         *,
         events(*),
         packages(*),
-        vendors(business_name, location_address, services),
+        vendors(business_name, location_address, services, user_id),
         users!leads_planner_id_fkey(full_name, email, organization)
       `)
       .eq('id', id)

@@ -1,36 +1,67 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Package } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { MapPin, Users, Utensils, Music, Building2, Sparkles } from 'lucide-react';
+import { MapPin, Users, Utensils, Music, Building2, Sparkles, CheckCircle2, Circle } from 'lucide-react';
 
 interface PackageCardProps {
   package: Package;
   eventId?: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export function PackageCard({ package: pkg, eventId }: PackageCardProps) {
+export function PackageCard({
+  package: pkg,
+  eventId,
+  selectable = false,
+  selected = false,
+  onToggleSelect
+}: PackageCardProps) {
   const packageDetailUrl = eventId
     ? `/packages/${pkg.id}?eventId=${eventId}`
     : `/packages/${pkg.id}`;
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-lg">
+    <Card className={`overflow-hidden transition-all hover:shadow-lg ${selected ? 'ring-2 ring-primary-500' : ''}`}>
       {/* Image */}
       <div className="relative h-48 w-full bg-gradient-to-br from-slate-200 to-slate-300">
         {pkg.photos && pkg.photos.length > 0 ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={pkg.photos[0]}
             alt={pkg.name}
-            className="h-full w-full object-cover"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            loading="lazy"
           />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Building2 className="h-16 w-16 text-slate-400" />
           </div>
         )}
+
+        {/* Selection Checkbox */}
+        {selectable && onToggleSelect && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect();
+            }}
+            className="absolute left-4 top-4 z-10"
+          >
+            {selected ? (
+              <CheckCircle2 className="h-8 w-8 text-primary-600 bg-white rounded-full" />
+            ) : (
+              <Circle className="h-8 w-8 text-white bg-slate-900/30 rounded-full hover:bg-slate-900/50 transition-colors" />
+            )}
+          </button>
+        )}
+
         <div className="absolute right-4 top-4 flex gap-2">
           {pkg.score !== undefined && (
             <Badge variant="success" className="bg-green-600 text-white">

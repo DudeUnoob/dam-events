@@ -83,8 +83,12 @@ export interface Lead {
   responded_at?: string;
   updated_at: string;
   event?: Event;
+  events?: Event; // Alternative property name from API
   package?: Package;
+  packages?: Package; // Alternative property name from API
   vendor?: Vendor;
+  vendors?: Vendor; // Supabase returns table name (plural)
+  users?: User; // For planner info
 }
 
 export interface Message {
@@ -95,4 +99,11 @@ export interface Message {
   content: string;
   read: boolean;
   created_at: string;
+}
+
+// Client-side message type with status for optimistic updates
+export interface MessageWithStatus extends Message {
+  status?: 'sending' | 'sent' | 'delivered' | 'failed';
+  tempId?: string; // Temporary ID for optimistic updates
+  error?: string; // Error message if failed
 }

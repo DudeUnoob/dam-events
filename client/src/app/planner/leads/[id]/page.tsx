@@ -104,10 +104,7 @@ export default function PlannerLeadDetailPage() {
           <ErrorState
             title="Failed to load lead"
             message={error || 'Lead not found'}
-            action={{
-              label: 'Back to Dashboard',
-              onClick: () => router.push('/planner/dashboard'),
-            }}
+            onRetry={() => router.push('/planner/dashboard')}
           />
         </div>
       </div>

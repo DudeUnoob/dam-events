@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { Calendar, Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User } from 'lucide-react';
+import { Calendar, Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -123,6 +123,16 @@ export function Navigation() {
                           <p className="mt-1 text-xs text-primary-600 capitalize">{user.role}</p>
                         </div>
                         <div className="p-1">
+                          {user.role === 'planner' && (
+                            <Link
+                              href="/planner/profile"
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              <Settings className="h-4 w-4" />
+                              Profile Settings
+                            </Link>
+                          )}
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
@@ -238,6 +248,16 @@ export function Navigation() {
                     <p className="text-xs text-slate-500">{user.email}</p>
                     <p className="mt-1 text-xs text-primary-600 capitalize">{user.role}</p>
                   </div>
+                  {user.role === 'planner' && (
+                    <Link
+                      href="/planner/profile"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Settings className="h-4 w-4" />
+                      Profile Settings
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);

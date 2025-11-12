@@ -240,25 +240,14 @@ export async function GET(request: Request) {
     }
 
     // Filter out packages without vendor data and transform
-    // DEBUG: Log what we got from the database
-    console.log('📦 Total packages from DB:', packages?.length || 0);
-    if (packages && packages.length > 0) {
-      console.log('📦 First package sample:', JSON.stringify(packages[0], null, 2));
-      console.log('📦 Vendors field exists?', 'vendors' in packages[0]);
-      console.log('📦 Vendors value:', packages[0].vendors);
-    }
-
     const transformedPackages = (packages || [])
-      // TEMPORARILY COMMENTED FOR DEBUGGING - uncomment after fixing vendor relationship
-      // .filter((pkg: any) => pkg.vendors) // Only include packages with vendor data
+      .filter((pkg: any) => pkg.vendors) // Only include packages with vendor data
       .map((pkg: any) => ({
         ...pkg,
-        vendor: pkg.vendors || null, // Allow null vendors during debugging
+        vendor: pkg.vendors,
         distance: null, // No event context, so no distance calculation
         score: 0, // Default score
       }));
-
-    console.log('📦 Transformed packages count:', transformedPackages.length);
 
     return NextResponse.json({ data: transformedPackages, error: null }, { status: 200 });
   } catch (error) {

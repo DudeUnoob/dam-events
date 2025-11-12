@@ -114,7 +114,7 @@ export default function VendorOnboardingPage() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900">Welcome to DAM Events!</h1>
           <p className="mt-2 text-lg text-slate-600">
-            Let's set up your vendor profile to start receiving event leads
+            Let&apos;s set up your vendor profile to start receiving event leads
           </p>
         </div>
 
@@ -144,8 +144,8 @@ export default function VendorOnboardingPage() {
                 onChange={handleChange}
                 placeholder="e.g., Elite Events Venue"
                 required
-                helperText="Your business name as you want it displayed to planners"
               />
+              <p className="mt-1 text-xs text-slate-500">Your business name as you want it displayed to planners</p>
 
               {/* Description */}
               <Textarea
@@ -156,9 +156,9 @@ export default function VendorOnboardingPage() {
                 rows={4}
                 placeholder="Describe your venue, services, what makes you unique..."
                 required
-                helperText="Max 500 characters"
                 maxLength={500}
               />
+              <p className="mt-1 text-xs text-slate-500">Max 500 characters</p>
 
               {/* Services */}
               <div>
@@ -199,8 +199,8 @@ export default function VendorOnboardingPage() {
                 onChange={handleChange}
                 placeholder="e.g., 123 Main St, Austin, TX"
                 required
-                helperText="Your venue address or general business location"
               />
+              <p className="mt-1 text-xs text-slate-500">Your venue address or general business location</p>
 
               {/* Info Box */}
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">

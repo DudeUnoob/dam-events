@@ -181,7 +181,7 @@ export default function SignupCompletePage() {
                     disabled={loading}
                   />
                   <p className="mt-2 text-xs text-slate-500">
-                    For receiving lead notifications. Next, you'll create your vendor profile.
+                    For receiving lead notifications. Next, you&apos;ll create your vendor profile.
                   </p>
                 </div>
               )}

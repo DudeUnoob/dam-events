@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { Vendor } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Shield, CheckCircle, XCircle, Clock, Users, Package, RefreshCw } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, Users, Package, RefreshCw, TrendingUp, BarChart3 } from 'lucide-react';
 
 interface AdminStats {
   pendingVendors: number;
@@ -18,13 +18,29 @@ interface AdminStats {
   totalUsers: number;
 }
 
+interface VendorAnalytics {
+  vendor_id: string;
+  business_name: string;
+  email: string;
+  status: string;
+  package_count: number;
+  lead_count: number;
+  booked_count: number;
+  conversion_rate: number;
+  avg_response_time_hours: number | null;
+  created_at: string;
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [vendorAnalytics, setVendorAnalytics] = useState<VendorAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const fetchVendors = async () => {
     setLoading(true);
@@ -54,6 +70,24 @@ export default function AdminDashboard() {
       setError('Failed to load pending vendors');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVendorAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const response = await fetch('/api/admin/vendors/analytics');
+      const data = await response.json();
+
+      if (response.ok && data.data) {
+        setVendorAnalytics(data.data);
+      } else {
+        console.error('Failed to fetch analytics:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching vendor analytics:', err);
+    } finally {
+      setAnalyticsLoading(false);
     }
   };
 
@@ -213,6 +247,151 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
+        {/* Vendor Analytics */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Vendor Performance Analytics
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!showAnalytics) {
+                  fetchVendorAnalytics();
+                }
+                setShowAnalytics(!showAnalytics);
+              }}
+            >
+              {showAnalytics ? 'Hide Analytics' : 'View Analytics'}
+            </Button>
+          </div>
+
+          {showAnalytics && (
+            <Card>
+              <CardContent className="p-0">
+                {analyticsLoading ? (
+                  <div className="p-12 text-center">
+                    <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary-600" />
+                    <p className="mt-4 text-slate-600">Loading analytics...</p>
+                  </div>
+                ) : vendorAnalytics.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Vendor
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Packages
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Leads
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Booked
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Conv. Rate
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-700 uppercase tracking-wider">
+                            Avg Response
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-200">
+                        {vendorAnalytics.map((analytics) => (
+                          <tr key={analytics.vendor_id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">
+                                  {analytics.business_name}
+                                </p>
+                                <p className="text-xs text-slate-500">{analytics.email}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge
+                                variant={
+                                  analytics.status === 'verified'
+                                    ? 'success'
+                                    : analytics.status === 'pending'
+                                    ? 'warning'
+                                    : 'danger'
+                                }
+                              >
+                                {analytics.status}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="text-sm text-slate-900">{analytics.package_count}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="text-sm text-slate-900">{analytics.lead_count}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="text-sm font-medium text-green-600">
+                                {analytics.booked_count}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    analytics.conversion_rate >= 25
+                                      ? 'text-green-600'
+                                      : analytics.conversion_rate >= 10
+                                      ? 'text-yellow-600'
+                                      : 'text-slate-600'
+                                  }`}
+                                >
+                                  {analytics.conversion_rate}%
+                                </span>
+                                {analytics.conversion_rate >= 25 && (
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {analytics.avg_response_time_hours !== null ? (
+                                <span
+                                  className={`text-sm ${
+                                    analytics.avg_response_time_hours <= 24
+                                      ? 'text-green-600 font-medium'
+                                      : analytics.avg_response_time_hours <= 48
+                                      ? 'text-yellow-600'
+                                      : 'text-red-600'
+                                  }`}
+                                >
+                                  {analytics.avg_response_time_hours < 1
+                                    ? `${Math.round(analytics.avg_response_time_hours * 60)}m`
+                                    : `${analytics.avg_response_time_hours.toFixed(1)}h`}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-12 text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto text-slate-400" />
+                    <p className="mt-4 text-slate-600">No vendor data available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Pending Vendors */}
         <div className="mt-8">
           <h2 className="mb-6 text-xl font-semibold text-slate-900">
@@ -233,10 +412,7 @@ export default function AdminDashboard() {
             <ErrorState
               title="Failed to load vendors"
               message={error}
-              action={{
-                label: 'Try Again',
-                onClick: fetchVendors,
-              }}
+              onRetry={fetchVendors}
             />
           ) : vendors.length > 0 ? (
             <div className="space-y-4">

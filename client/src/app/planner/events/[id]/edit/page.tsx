@@ -163,10 +163,7 @@ export default function EditEventPage() {
           <ErrorState
             title="Failed to load event"
             message={fetchError}
-            action={{
-              label: 'Back to Dashboard',
-              onClick: () => router.push('/planner/dashboard'),
-            }}
+            onRetry={() => router.push('/planner/dashboard')}
           />
         </div>
       </div>

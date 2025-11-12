@@ -14,16 +14,30 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string | Date): string {
+  if (!date) return 'N/A';
+
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    return 'Invalid Date';
+  }
+
   return new Intl.DateTimeFormat('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }).format(new Date(date));
+  }).format(parsedDate);
 }
 
 export function formatRelativeTime(date: string | Date): string {
+  if (!date) return 'N/A';
+
   const now = new Date();
   const then = new Date(date);
+
+  if (isNaN(then.getTime())) {
+    return 'Invalid Date';
+  }
+
   const diffInSeconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
   if (diffInSeconds < 60) {

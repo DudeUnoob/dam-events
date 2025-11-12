@@ -207,7 +207,7 @@ export async function GET(request: Request) {
           *,
           events(*),
           packages(*),
-          vendors(business_name, location_address)
+          vendors(business_name, location_address, user_id)
         `)
         .eq('planner_id', user.id)
         .order('created_at', { ascending: false });

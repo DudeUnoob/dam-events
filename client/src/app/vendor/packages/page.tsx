@@ -106,10 +106,7 @@ export default function VendorPackagesPage() {
           <ErrorState
             title="Failed to load packages"
             message={error}
-            action={{
-              label: 'Back to Dashboard',
-              onClick: () => router.push('/vendor/dashboard'),
-            }}
+            onRetry={() => router.push('/vendor/dashboard')}
           />
         </div>
       </div>

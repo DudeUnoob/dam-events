@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
+import { EventSelectionModal } from '@/components/planner/EventSelectionModal';
 import {
   Building2,
   Users,
@@ -39,6 +40,11 @@ export default function PackageDetailPage() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [selectedEventIdForQuote, setSelectedEventIdForQuote] = useState<string | null>(null);
+
+  // Track if quote has been requested to prevent duplicates
+  const quoteRequestedRef = useRef(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,21 +81,29 @@ export default function PackageDetailPage() {
     fetchData();
   }, [packageId, eventId]);
 
-  const handleRequestQuote = async () => {
+  const handleRequestQuote = useCallback(async () => {
     if (!user) {
       showToast('Please sign in to request a quote', 'error');
       router.push('/login');
       return;
     }
 
-    if (!eventId) {
-      showToast('Please select an event first', 'info');
-      // Redirect to event selection or create event
-      router.push('/planner/events/create');
+    if (!eventId && !selectedEventIdForQuote) {
+      // Open modal to select or create an event
+      setIsEventModalOpen(true);
       return;
     }
 
+    // Prevent duplicate submissions
+    if (quoteRequestedRef.current) {
+      console.log('Quote request already in progress, skipping duplicate');
+      return;
+    }
+
+    const effectiveEventId = selectedEventIdForQuote || eventId;
+
     try {
+      quoteRequestedRef.current = true;
       setRequesting(true);
 
       const response = await fetch('/api/leads', {
@@ -98,7 +112,7 @@ export default function PackageDetailPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          eventId,
+          eventId: effectiveEventId,
           packageId,
         }),
       });
@@ -110,14 +124,47 @@ export default function PackageDetailPage() {
       }
 
       showToast('Quote requested successfully!', 'success');
+      // Clear selected event and session storage
+      setSelectedEventIdForQuote(null);
+      sessionStorage.removeItem(`autoSubmitQuote_${packageId}`);
       router.push(`/planner/leads/${data.data.id}`);
     } catch (err: any) {
       console.error('Error requesting quote:', err);
       showToast(err.message || 'Failed to request quote', 'error');
+      // Reset flag on error so user can retry
+      quoteRequestedRef.current = false;
     } finally {
       setRequesting(false);
     }
+  }, [user, eventId, selectedEventIdForQuote, packageId, showToast, router]);
+
+  const handleEventSelected = (selectedEventId: string) => {
+    setSelectedEventIdForQuote(selectedEventId);
+    // After setting the event, trigger the quote request
+    setIsEventModalOpen(false);
+    // We need to wait for state to update, so we'll use useEffect
   };
+
+  // Auto-submit quote when event is selected from modal
+  useEffect(() => {
+    if (selectedEventIdForQuote && !requesting) {
+      handleRequestQuote();
+    }
+  }, [selectedEventIdForQuote, requesting, handleRequestQuote]);
+
+  // Auto-submit quote when returning from event creation
+  useEffect(() => {
+    if (eventId && pkg && user && !requesting) {
+      // Check if we should auto-submit (e.g., user just created an event and came back)
+      // We'll use sessionStorage to track if we should auto-submit
+      const shouldAutoSubmit = sessionStorage.getItem(`autoSubmitQuote_${packageId}`);
+
+      if (shouldAutoSubmit === 'true') {
+        sessionStorage.removeItem(`autoSubmitQuote_${packageId}`);
+        handleRequestQuote();
+      }
+    }
+  }, [eventId, pkg, user, requesting, packageId, handleRequestQuote]);
 
   if (loading) {
     return (
@@ -334,9 +381,9 @@ export default function PackageDetailPage() {
                     {requesting ? 'Requesting...' : 'Request Quote'}
                   </Button>
 
-                  {!eventId && (
+                  {!eventId && !selectedEventIdForQuote && (
                     <p className="text-xs text-center text-slate-500">
-                      You'll be prompted to select or create an event
+                      You&apos;ll be able to select or create an event
                     </p>
                   )}
                 </div>
@@ -373,6 +420,14 @@ export default function PackageDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Event Selection Modal */}
+        <EventSelectionModal
+          isOpen={isEventModalOpen}
+          onClose={() => setIsEventModalOpen(false)}
+          onSelectEvent={handleEventSelected}
+          packageId={packageId}
+        />
       </div>
     </div>
   );
