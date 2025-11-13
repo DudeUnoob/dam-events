@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -10,7 +10,8 @@ import { PackageCard } from '@/components/planner/PackageCard';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { Package, Event } from '@/types';
-import { Search, Filter, X, Sparkles, Send, CheckSquare, Square } from 'lucide-react';
+import { Search, Filter, X, Sparkles, Send, CheckSquare, Square, Wand2, Info } from 'lucide-react';
+import { debounce } from 'lodash';
 
 export default function BrowsePackagesPage() {
   const searchParams = useSearchParams();
@@ -23,6 +24,10 @@ export default function BrowsePackagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [useSemanticSearch, setUseSemanticSearch] = useState(true);
+  const [semanticResults, setSemanticResults] = useState<Package[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchHelp, setShowSearchHelp] = useState(false);
   const [budgetFilter, setBudgetFilter] = useState('');
   const [capacityFilter, setCapacityFilter] = useState('');
   const [distanceFilter, setDistanceFilter] = useState('');
@@ -68,10 +73,54 @@ export default function BrowsePackagesPage() {
     fetchPackages();
   }, [eventId]);
 
+  // Semantic search function
+  const performSemanticSearch = useCallback(async (query: string) => {
+    if (!query || query.trim().length === 0) {
+      setSemanticResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/packages/search?q=${encodeURIComponent(query)}&limit=50`);
+      const data = await response.json();
+
+      if (response.ok && data.packages) {
+        setSemanticResults(data.packages);
+      } else {
+        console.error('Semantic search failed:', data.error);
+        setSemanticResults([]);
+      }
+    } catch (err) {
+      console.error('Semantic search error:', err);
+      setSemanticResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounced semantic search
+  const debouncedSemanticSearch = useCallback(
+    debounce((query: string) => performSemanticSearch(query), 500),
+    [performSemanticSearch]
+  );
+
+  // Trigger semantic search when query changes
+  useEffect(() => {
+    if (useSemanticSearch && searchQuery) {
+      debouncedSemanticSearch(searchQuery);
+    } else {
+      setSemanticResults([]);
+    }
+  }, [searchQuery, useSemanticSearch, debouncedSemanticSearch]);
+
+  // Determine which packages to filter
+  const basePackages = useSemanticSearch && searchQuery ? semanticResults : packages;
+
   // Filter packages based on all criteria
-  const filteredPackages = packages.filter(pkg => {
-    // Search query filter
-    if (searchQuery) {
+  const filteredPackages = basePackages.filter(pkg => {
+    // Search query filter - only apply traditional search if NOT using semantic search
+    if (searchQuery && !useSemanticSearch) {
       const query = searchQuery.toLowerCase();
       const matchesSearch =
         pkg.name.toLowerCase().includes(query) ||
@@ -269,30 +318,93 @@ export default function BrowsePackagesPage() {
         {/* Search & Filters - keeping the mock data structure but using real packages */}
         <Card className="mt-8">
           <CardContent className="p-6">
-            <div className="flex flex-col gap-4 lg:flex-row">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search packages by name or vendor..."
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 lg:flex-row">
+                {/* Search */}
+                <div className="flex-1">
+                  <div className="relative">
+                    {useSemanticSearch ? (
+                      <Wand2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary-500" />
+                    ) : (
+                      <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    )}
+                    <Input
+                      type="text"
+                      placeholder={useSemanticSearch
+                        ? "Try: 'outdoor wedding venue for 150 guests under $5000'..."
+                        : "Search packages by name or vendor..."}
+                      className={`pl-10 pr-20 ${useSemanticSearch ? 'border-primary-300 focus:border-primary-500' : ''}`}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full" />
+                      </div>
+                    )}
+                    {!isSearching && (
+                      <button
+                        onClick={() => setShowSearchHelp(!showSearchHelp)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Semantic Search Toggle */}
+                <Button
+                  variant={useSemanticSearch ? "default" : "outline"}
+                  onClick={() => setUseSemanticSearch(!useSemanticSearch)}
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  AI Search
+                </Button>
+
+                {/* Filter Toggle */}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                  {showFilters && <X className="ml-2 h-4 w-4" />}
+                </Button>
               </div>
 
-              {/* Filter Toggle */}
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {showFilters && <X className="ml-2 h-4 w-4" />}
-              </Button>
+              {/* Search Help */}
+              {showSearchHelp && (
+                <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-primary-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-primary-900 mb-2">
+                        {useSemanticSearch ? 'Natural Language Search' : 'Basic Search'}
+                      </h4>
+                      {useSemanticSearch ? (
+                        <div className="text-sm text-primary-800 space-y-2">
+                          <p className="font-medium">Try searches like:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>"Wedding venue with outdoor ceremony space for 200 guests"</li>
+                            <li>"Luxury ballroom under $10,000 with catering"</li>
+                            <li>"Corporate event space with AV equipment for 50-100 people"</li>
+                            <li>"Budget-friendly birthday party venue with parking"</li>
+                            <li>"Elegant reception hall near downtown"</li>
+                          </ul>
+                          <p className="mt-2 text-xs text-primary-700">
+                            AI-powered search understands context, synonyms, and natural language queries for better results.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-primary-800">
+                          Search by package name, description, or vendor name. Use the filters below for more specific criteria.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Expanded Filters */}
