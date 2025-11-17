@@ -24,6 +24,9 @@ export async function middleware(req: NextRequest) {
     '/auth/callback',
     '/api/auth/callback',
     '/api/packages', // Public package browsing
+    '/api/search/semantic', // Public semantic search
+    '/api/search/smart', // Public smart search
+    '/api/search/hybrid', // Public hybrid search
   ];
 
   const isPublicRoute = publicRoutes.some(route =>

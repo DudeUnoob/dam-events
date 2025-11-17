@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase/route-handler';
+import { generateEmbedding, generateSearchDescription } from '@/lib/ai/embeddings';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -163,6 +164,47 @@ export async function PUT(
         { data: null, error: { message: 'Minimum price cannot exceed maximum price', code: 'VALIDATION_ERROR' } },
         { status: 400 }
       );
+    }
+
+    // Regenerate embedding if content changed (name, description, or details)
+    const contentChanged = !!(
+      validatedData.name ||
+      validatedData.description ||
+      validatedData.venueDetails ||
+      validatedData.cateringDetails ||
+      validatedData.entertainmentDetails ||
+      validatedData.priceMin !== undefined ||
+      validatedData.priceMax !== undefined ||
+      validatedData.capacity
+    );
+
+    if (contentChanged) {
+      try {
+        // Merge updated fields with existing package data
+        const mergedData = {
+          name: validatedData.name ?? pkg.name,
+          description: validatedData.description ?? pkg.description,
+          venue_details: validatedData.venueDetails ?? pkg.venue_details ?? {},
+          catering_details: validatedData.cateringDetails ?? pkg.catering_details ?? {},
+          entertainment_details: validatedData.entertainmentDetails ?? pkg.entertainment_details ?? {},
+          price_min: newPriceMin,
+          price_max: newPriceMax,
+          capacity: validatedData.capacity ?? pkg.capacity,
+        };
+
+        // Generate new search description and embedding
+        const searchDescription = generateSearchDescription(mergedData);
+        const embedding = await generateEmbedding(searchDescription);
+
+        // Add to update data
+        updateData.search_description = searchDescription;
+        updateData.embedding = embedding;
+
+        console.log('✅ Regenerated embedding for updated package');
+      } catch (embeddingError) {
+        // Log error but don't fail the update
+        console.error('Warning: Failed to regenerate embedding:', embeddingError);
+      }
     }
 
     // Update package

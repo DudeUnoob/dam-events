@@ -9,6 +9,9 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { PackageCard } from '@/components/planner/PackageCard';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
+import { SemanticSearchBar } from '@/components/planner/SemanticSearchBar';
+import { SearchResultsHeader, SearchParams } from '@/components/planner/SearchResultsHeader';
+import { EnhancedSearchResults, SearchMetadata } from '@/components/planner/EnhancedSearchResults';
 import { Package, Event } from '@/types';
 import { Search, Filter, X, Sparkles, Send, CheckSquare, Square } from 'lucide-react';
 
@@ -29,6 +32,14 @@ export default function BrowsePackagesPage() {
   const [servicesFilter, setServicesFilter] = useState('');
   const [selectedPackages, setSelectedPackages] = useState<Set<string>>(new Set());
   const [requestingQuotes, setRequestingQuotes] = useState(false);
+
+  // Semantic search state
+  const [useSemanticSearch, setUseSemanticSearch] = useState(false);
+  const [semanticQuery, setSemanticQuery] = useState('');
+  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [semanticResults, setSemanticResults] = useState<Package[]>([]);
+  const [extractedParams, setExtractedParams] = useState<SearchParams | null>(null);
+  const [searchMetadata, setSearchMetadata] = useState<SearchMetadata | null>(null);
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -68,8 +79,78 @@ export default function BrowsePackagesPage() {
     fetchPackages();
   }, [eventId]);
 
+  // Handle semantic search
+  const handleSemanticSearch = async (query: string) => {
+    try {
+      setSemanticLoading(true);
+      setSemanticQuery(query);
+      setError(null);
+
+      // Call smart search API (uses GPT for parameter extraction + hybrid search)
+      const response = await fetch('/api/search/smart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || 'Search failed');
+      }
+
+      // Set semantic search results
+      setSemanticResults(data.data.results || []);
+      setExtractedParams(data.data.extractedParams || null);
+
+      // Set search metadata for enhanced features
+      setSearchMetadata({
+        correctedQuery: data.data.correctedQuery,
+        expandedQuery: data.data.expandedQuery,
+        didYouMean: data.data.didYouMean,
+        relatedSearches: data.data.relatedSearches,
+        searchQuality: data.data.searchQuality,
+        totalMatches: data.data.totalMatches,
+      });
+
+      setUseSemanticSearch(true);
+    } catch (err: any) {
+      console.error('Semantic search error:', err);
+      setError(err.message || 'Search failed. Please try again.');
+      setUseSemanticSearch(false);
+    } finally {
+      setSemanticLoading(false);
+    }
+  };
+
+  // Handle removing individual parameter
+  const handleRemoveParam = (paramKey: keyof SearchParams) => {
+    if (!extractedParams) return;
+
+    // Set the parameter to null
+    const updatedParams = { ...extractedParams, [paramKey]: null };
+    setExtractedParams(updatedParams);
+
+    // Re-run search with updated params
+    // For now, we'll just clear that filter - in production, you'd re-run the hybrid search
+    // with the updated parameters
+  };
+
+  // Clear semantic search and return to traditional browse
+  const handleClearSemanticSearch = () => {
+    setUseSemanticSearch(false);
+    setSemanticQuery('');
+    setSemanticResults([]);
+    setExtractedParams(null);
+    setSearchMetadata(null);
+    setError(null);
+  };
+
+  // Determine which packages to display
+  const displayPackages = useSemanticSearch ? semanticResults : packages;
+
   // Filter packages based on all criteria
-  const filteredPackages = packages.filter(pkg => {
+  const filteredPackages = displayPackages.filter(pkg => {
     // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -266,8 +347,62 @@ export default function BrowsePackagesPage() {
           </Card>
         )}
 
-        {/* Search & Filters - keeping the mock data structure but using real packages */}
-        <Card className="mt-8">
+        {/* Natural Language Search */}
+        <div className="mt-8">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-slate-900">
+              Natural Language Search
+            </h2>
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              AI-Powered
+            </span>
+          </div>
+          <SemanticSearchBar
+            onSearch={handleSemanticSearch}
+            isLoading={semanticLoading}
+          />
+          {useSemanticSearch && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearSemanticSearch}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Use Traditional Filters Instead
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Search Results Header (for semantic search) */}
+        {useSemanticSearch && (
+          <div className="mt-6 space-y-4">
+            <SearchResultsHeader
+              query={semanticQuery}
+              resultCount={semanticResults.length}
+              extractedParams={extractedParams || undefined}
+              onRemoveParam={handleRemoveParam}
+              onClearAll={handleClearSemanticSearch}
+            />
+
+            {/* Enhanced Search Results (AI features) */}
+            {searchMetadata && (
+              <EnhancedSearchResults
+                metadata={searchMetadata}
+                resultCount={semanticResults.length}
+                onSuggestionClick={(suggestion) => {
+                  handleSemanticSearch(suggestion);
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Traditional Search & Filters */}
+        {!useSemanticSearch && (
+          <Card className="mt-8">
           <CardContent className="p-6">
             <div className="flex flex-col gap-4 lg:flex-row">
               {/* Search */}
@@ -383,6 +518,7 @@ export default function BrowsePackagesPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Results Count and Selection Controls */}
         <div className="mt-6 flex items-center justify-between">

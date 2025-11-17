@@ -8,6 +8,7 @@
 
 import { createClient } from '@/lib/supabase/route-handler';
 import { matchPackages } from '@/lib/matching/algorithm';
+import { generateEmbedding, generateSearchDescription } from '@/lib/ai/embeddings';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -76,7 +77,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create package
+    // Generate search description and embedding
+    let embedding: number[] | null = null;
+    let searchDescription: string | null = null;
+
+    try {
+      searchDescription = generateSearchDescription({
+        name: validatedData.name,
+        description: validatedData.description,
+        venue_details: validatedData.venueDetails || {},
+        catering_details: validatedData.cateringDetails || {},
+        entertainment_details: validatedData.entertainmentDetails || {},
+        price_min: validatedData.priceMin,
+        price_max: validatedData.priceMax,
+        capacity: validatedData.capacity,
+      });
+
+      embedding = await generateEmbedding(searchDescription);
+      console.log('✅ Generated embedding for new package');
+    } catch (embeddingError) {
+      // Log error but don't fail package creation
+      console.error('Warning: Failed to generate embedding:', embeddingError);
+      // Package will be created without embedding (can be backfilled later)
+    }
+
+    // Create package with embedding
     const { data: pkg, error: pkgError } = await supabase
       .from('packages')
       .insert({
@@ -91,6 +116,8 @@ export async function POST(request: Request) {
         capacity: validatedData.capacity,
         photos: [],
         status: validatedData.status,
+        embedding: embedding,
+        search_description: searchDescription,
       })
       .select()
       .single();
