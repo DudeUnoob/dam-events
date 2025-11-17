@@ -61,6 +61,8 @@ export interface Database {
           location_lat: number | null
           location_lng: number | null
           status: 'pending' | 'verified' | 'rejected'
+          embedding: number[] | null
+          searchable_text: string | null
           created_at: string
           updated_at: string
         }
@@ -74,6 +76,8 @@ export interface Database {
           location_lat?: number | null
           location_lng?: number | null
           status?: 'pending' | 'verified' | 'rejected'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -87,6 +91,8 @@ export interface Database {
           location_lat?: number | null
           location_lng?: number | null
           status?: 'pending' | 'verified' | 'rejected'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -105,6 +111,8 @@ export interface Database {
           capacity: number
           photos: string[]
           status: 'draft' | 'published'
+          embedding: number[] | null
+          searchable_text: string | null
           created_at: string
           updated_at: string
         }
@@ -121,6 +129,8 @@ export interface Database {
           capacity: number
           photos?: string[]
           status?: 'draft' | 'published'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -137,6 +147,8 @@ export interface Database {
           capacity?: number
           photos?: string[]
           status?: 'draft' | 'published'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -154,6 +166,8 @@ export interface Database {
           event_type: string
           description: string | null
           status: 'draft' | 'active' | 'booked' | 'closed'
+          embedding: number[] | null
+          searchable_text: string | null
           created_at: string
           updated_at: string
         }
@@ -169,6 +183,8 @@ export interface Database {
           event_type: string
           description?: string | null
           status?: 'draft' | 'active' | 'booked' | 'closed'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -184,6 +200,8 @@ export interface Database {
           event_type?: string
           description?: string | null
           status?: 'draft' | 'active' | 'booked' | 'closed'
+          embedding?: number[] | null
+          searchable_text?: string | null
           created_at?: string
           updated_at?: string
         }

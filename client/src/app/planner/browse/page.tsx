@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { PackageCard } from '@/components/planner/PackageCard';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
+import { SemanticSearch } from '@/components/shared/SemanticSearch';
 import { Package, Event } from '@/types';
 import { Search, Filter, X, Sparkles } from 'lucide-react';
 
@@ -26,6 +27,11 @@ export default function BrowsePackagesPage() {
   const [capacityFilter, setCapacityFilter] = useState('');
   const [distanceFilter, setDistanceFilter] = useState('');
   const [servicesFilter, setServicesFilter] = useState('');
+  
+  // RAG/Semantic search states
+  const [searchMode, setSearchMode] = useState<'traditional' | 'semantic'>('traditional');
+  const [semanticResults, setSemanticResults] = useState<any[]>([]);
+  const [semanticSearching, setSemanticSearching] = useState(false);
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -64,9 +70,37 @@ export default function BrowsePackagesPage() {
 
     fetchPackages();
   }, [eventId]);
+  
+  // Handle semantic search
+  const handleSemanticSearch = async (query: string, filters?: any) => {
+    setSemanticSearching(true);
+    try {
+      const response = await fetch('/api/search/packages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, filters }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSemanticResults(data.results);
+      } else {
+        setError('Search failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setError('Failed to perform search. Please try again.');
+    } finally {
+      setSemanticSearching(false);
+    }
+  };
 
-  // Filter packages based on all criteria
-  const filteredPackages = packages.filter(pkg => {
+  // Determine which packages to display
+  const displayPackages = searchMode === 'semantic' ? semanticResults : packages;
+  
+  // Filter packages based on all criteria (only for traditional mode)
+  const filteredPackages = searchMode === 'traditional' ? displayPackages.filter(pkg => {
     // Search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -129,7 +163,7 @@ export default function BrowsePackagesPage() {
     }
 
     return true;
-  });
+  }) : displayPackages;
 
   if (loading) {
     return (
@@ -196,37 +230,70 @@ export default function BrowsePackagesPage() {
           </Card>
         )}
 
-        {/* Search & Filters - keeping the mock data structure but using real packages */}
-        <Card className="mt-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-4 lg:flex-row">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search packages by name or vendor..."
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+        {/* Search Mode Toggle */}
+        <div className="mt-8 flex gap-3 justify-center">
+          <Button
+            variant={searchMode === 'traditional' ? 'default' : 'outline'}
+            onClick={() => setSearchMode('traditional')}
+            className="flex items-center gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filter Search
+          </Button>
+          <Button
+            variant={searchMode === 'semantic' ? 'default' : 'outline'}
+            onClick={() => setSearchMode('semantic')}
+            className="flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            AI Search
+          </Button>
+        </div>
+
+        {/* Semantic Search */}
+        {searchMode === 'semantic' && (
+          <div className="mt-8">
+            <SemanticSearch
+              onSearch={handleSemanticSearch}
+              placeholder="Describe what you're looking for in natural language..."
+              showFilters={true}
+              isLoading={semanticSearching}
+            />
+          </div>
+        )}
+
+        {/* Traditional Search & Filters */}
+        {searchMode === 'traditional' && (
+          <Card className="mt-8">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-4 lg:flex-row">
+                {/* Search */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search packages by name or vendor..."
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
+
+                {/* Filter Toggle */}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                  {showFilters && <X className="ml-2 h-4 w-4" />}
+                </Button>
               </div>
 
-              {/* Filter Toggle */}
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {showFilters && <X className="ml-2 h-4 w-4" />}
-              </Button>
-            </div>
-
-            {/* Expanded Filters */}
-            {showFilters && (
+              {/* Expanded Filters */}
+              {showFilters && (
               <div className="mt-6 grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">Budget</label>
@@ -308,11 +375,12 @@ export default function BrowsePackagesPage() {
                       Clear All Filters
                     </Button>
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results Count */}
         <div className="mt-6 flex items-center justify-between">
@@ -325,23 +393,41 @@ export default function BrowsePackagesPage() {
         {filteredPackages.length > 0 ? (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredPackages.map((pkg) => (
-              <PackageCard
-                key={pkg.id}
-                package={pkg}
-                eventId={eventId || undefined}
-              />
+              <div key={pkg.id} className="relative">
+                <PackageCard
+                  package={pkg}
+                  eventId={eventId || undefined}
+                />
+                {searchMode === 'semantic' && pkg.similarity !== undefined && (
+                  <div className="absolute top-2 right-2 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+                    {Math.round(pkg.similarity * 100)}% match
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         ) : (
           <Card className="mt-6">
             <CardContent className="p-12 text-center">
-              <Search className="mx-auto h-12 w-12 text-slate-400" />
-              <h3 className="mt-4 text-lg font-semibold text-slate-900">No packages found</h3>
-              <p className="mt-2 text-slate-600">
-                {searchQuery
-                  ? 'Try adjusting your search query'
-                  : 'Try adjusting your filters or search criteria'}
-              </p>
+              {semanticSearching ? (
+                <>
+                  <div className="mx-auto h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <h3 className="mt-4 text-lg font-semibold text-slate-900">Searching...</h3>
+                  <p className="mt-2 text-slate-600">Finding the best matches for you</p>
+                </>
+              ) : (
+                <>
+                  <Search className="mx-auto h-12 w-12 text-slate-400" />
+                  <h3 className="mt-4 text-lg font-semibold text-slate-900">No packages found</h3>
+                  <p className="mt-2 text-slate-600">
+                    {searchMode === 'semantic'
+                      ? 'Try describing what you\'re looking for in different words'
+                      : searchQuery
+                      ? 'Try adjusting your search query'
+                      : 'Try adjusting your filters or search criteria'}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
