@@ -3,7 +3,7 @@
  * Reranks search results based on multiple relevance signals
  */
 
-interface PackageResult {
+export interface PackageResult {
   id: string;
   name: string;
   description: string;
@@ -23,6 +23,7 @@ interface RerankingParams {
   guestCount?: number | null;
   foodType?: string | null;
   venueType?: string | null;
+  agenticScore?: number; // Score from LLM reranking
 }
 
 /**
@@ -249,6 +250,106 @@ export function rerankResults(
   rankedResults.sort((a, b) => (b.rerank_score || 0) - (a.rerank_score || 0));
 
   return rankedResults;
+}
+
+/**
+ * Agentic Reranking using GPT-4o-mini
+ * Uses an LLM to re-order the top results based on subtle intent matching
+ */
+export async function agenticRerank(
+  results: PackageResult[],
+  query: string
+): Promise<PackageResult[]> {
+  try {
+    // Only rerank top 10 to save tokens and latency
+    const topResults = results.slice(0, 10);
+    if (topResults.length < 2) return results;
+
+    const remainingResults = results.slice(10);
+
+    // Create a simplified representation for the LLM
+    const candidates = topResults.map((pkg, index) => ({
+      id: pkg.id,
+      index: index,
+      name: pkg.name,
+      description: pkg.description.substring(0, 200), // Truncate for token limit
+      price: `$${pkg.price_min}-${pkg.price_max}`,
+      capacity: pkg.capacity,
+      venue_type: pkg.venue_details?.type,
+      food: pkg.catering_details?.cuisine_type,
+    }));
+
+    const prompt = `Rank these event packages for the query: "${query}"
+
+Candidates:
+${JSON.stringify(candidates, null, 2)}
+
+Return a JSON object with a "rankings" array containing objects with "id" and "score" (0-100, where 100 is best fit).
+Consider:
+- Vibe/Atmosphere matching
+- Specific constraint satisfaction
+- Implicit intent (e.g. "cheap" -> low price, "huge" -> high capacity)
+
+Example output:
+{
+  "rankings": [
+    { "id": "uuid1", "score": 95, "reason": "Perfect match for rustic theme" },
+    { "id": "uuid2", "score": 80, "reason": "Good but slightly expensive" }
+  ]
+}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert event planner ranking venues. Return JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('Agentic reranking failed:', await response.text());
+      return results;
+    }
+
+    const data = await response.json();
+    const content = JSON.parse(data.choices[0].message.content);
+    const rankings = content.rankings || [];
+
+    // Create a map of scores
+    const scoreMap = new Map<string, { score: number, reason: string }>();
+    rankings.forEach((r: any) => {
+      scoreMap.set(r.id, { score: r.score, reason: r.reason });
+    });
+
+    // Re-order top results based on AI score
+    const rerankedTop = topResults.map(pkg => {
+      const ranking = scoreMap.get(pkg.id);
+      return {
+        ...pkg,
+        agentic_score: ranking?.score || 0,
+        agentic_reason: ranking?.reason,
+        // Boost the rerank_score with the agentic score
+        rerank_score: (pkg.rerank_score || 0) + ((ranking?.score || 0) / 100) * 0.5 // Add up to 0.5 boost
+      };
+    });
+
+    // Sort by new score
+    rerankedTop.sort((a, b) => (b.rerank_score || 0) - (a.rerank_score || 0));
+
+    return [...rerankedTop, ...remainingResults];
+  } catch (error) {
+    console.error('Error in agentic reranking:', error);
+    return results;
+  }
 }
 
 /**

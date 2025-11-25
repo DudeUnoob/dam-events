@@ -12,15 +12,39 @@ import { generateEmbedding, generateSearchDescription } from '@/lib/ai/embedding
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// Validation schema
+// Validation schemas
+const dayAvailabilitySchema = z.object({
+  isOpen: z.boolean(),
+  openTime: z.string(),
+  closeTime: z.string(),
+});
+
+const exceptionDateSchema = z.object({
+  date: z.string(), // YYYY-MM-DD format
+  reason: z.string(),
+});
+
 const packageSchema = z.object({
   vendorId: z.string().uuid(),
   name: z.string().min(1, 'Package name is required'),
   description: z.string().min(20, 'Description must be at least 20 characters'),
   venueDetails: z.object({
     name: z.string(),
-    capacity: z.number().positive(),
+    min_capacity: z.number().int().positive(),
+    max_capacity: z.number().int().positive(),
+    square_footage: z.number().int().positive().optional(),
+    short_description: z.string().optional(),
     amenities: z.array(z.string()),
+    availability: z.object({
+      monday: dayAvailabilitySchema,
+      tuesday: dayAvailabilitySchema,
+      wednesday: dayAvailabilitySchema,
+      thursday: dayAvailabilitySchema,
+      friday: dayAvailabilitySchema,
+      saturday: dayAvailabilitySchema,
+      sunday: dayAvailabilitySchema,
+    }).optional(),
+    exception_dates: z.array(exceptionDateSchema).optional(),
   }).optional(),
   cateringDetails: z.object({
     menuOptions: z.array(z.string()),
@@ -32,7 +56,10 @@ const packageSchema = z.object({
   }).optional(),
   priceMin: z.number().positive('Minimum price must be positive'),
   priceMax: z.number().positive('Maximum price must be positive'),
+  hourlyRateMin: z.number().positive('Minimum hourly rate must be positive').optional(),
+  hourlyRateMax: z.number().positive('Maximum hourly rate must be positive').optional(),
   capacity: z.number().int().positive('Capacity must be a positive integer'),
+  photos: z.array(z.string()).default([]),
   status: z.enum(['draft', 'published']).default('draft'),
 });
 
@@ -77,6 +104,29 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate hourly rate range if provided
+    if (
+      validatedData.hourlyRateMin &&
+      validatedData.hourlyRateMax &&
+      validatedData.hourlyRateMin > validatedData.hourlyRateMax
+    ) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Minimum hourly rate cannot exceed maximum hourly rate', code: 'VALIDATION_ERROR' } },
+        { status: 400 }
+      );
+    }
+
+    // Validate capacity range if venue details provided
+    if (
+      validatedData.venueDetails &&
+      validatedData.venueDetails.min_capacity > validatedData.venueDetails.max_capacity
+    ) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Minimum capacity cannot exceed maximum capacity', code: 'VALIDATION_ERROR' } },
+        { status: 400 }
+      );
+    }
+
     // Generate search description and embedding
     let embedding: number[] | null = null;
     let searchDescription: string | null = null;
@@ -113,8 +163,10 @@ export async function POST(request: Request) {
         entertainment_details: validatedData.entertainmentDetails || null,
         price_min: validatedData.priceMin,
         price_max: validatedData.priceMax,
+        hourly_rate_min: validatedData.hourlyRateMin || null,
+        hourly_rate_max: validatedData.hourlyRateMax || null,
         capacity: validatedData.capacity,
-        photos: [],
+        photos: validatedData.photos || [],
         status: validatedData.status,
         embedding: embedding,
         search_description: searchDescription,

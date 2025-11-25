@@ -8,7 +8,6 @@
 .env.production
 node_modules
 .DS_Store
-.vscode
 .idea
 cache/
 .next/

@@ -19,7 +19,7 @@ import {
   expandQuery,
 } from '@/lib/ai/embeddings';
 import { preprocessQuery } from '@/lib/ai/query-preprocessing';
-import { rerankResults, explainRanking, diversifyResults } from '@/lib/ai/reranking';
+import { rerankResults, explainRanking, diversifyResults, agenticRerank, PackageResult } from '@/lib/ai/reranking';
 import { generateDidYouMean, generateRelatedSearches, analyzeSearchQuality } from '@/lib/ai/suggestions';
 
 // Request validation schema
@@ -31,13 +31,14 @@ const smartSearchSchema = z.object({
   useReranking: z.boolean().optional().default(true), // Enable reranking by default
   useDiversify: z.boolean().optional().default(false), // Diversity optional
   includeSuggestions: z.boolean().optional().default(true), // Include search suggestions
+  useAgentic: z.boolean().optional().default(true), // Enable agentic reranking by default
 });
 
 export async function POST(request: Request) {
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { query, limit, threshold, useExpansion, useReranking, useDiversify, includeSuggestions } = smartSearchSchema.parse(body);
+    const { query, limit, threshold, useExpansion, useReranking, useDiversify, includeSuggestions, useAgentic } = smartSearchSchema.parse(body);
 
     console.log('🧠 Smart search query:', query);
 
@@ -91,11 +92,14 @@ export async function POST(request: Request) {
       'hybrid_search_packages',
       {
         query_embedding: queryEmbedding,
+        query_text: query, // Pass original query for FTS
         budget_max: extractedParams.budget_max,
         capacity_min: extractedParams.capacity_min,
         location_filter: extractedParams.location,
         match_threshold: threshold,
         match_count: limit,
+        fts_weight: 0.3, // 30% FTS
+        vector_weight: 0.7, // 70% Vector
       }
     );
 
@@ -127,12 +131,20 @@ export async function POST(request: Request) {
       });
 
       // Add ranking explanations
-      finalResults = finalResults.map(pkg => ({
+      finalResults = finalResults.map((pkg: PackageResult) => ({
         ...pkg,
         ranking_explanation: explainRanking(pkg),
       }));
 
       console.log('✅ Reranking complete');
+    }
+
+    // Step 7.5: Agentic Reranking (The "State of the Art" touch)
+    if (useAgentic && finalResults.length > 0) {
+      console.log('🧠 Performing Agentic Reranking...');
+      const startTime = Date.now();
+      finalResults = await agenticRerank(finalResults, query);
+      console.log(`✅ Agentic Reranking complete in ${Date.now() - startTime}ms`);
     }
 
     // Step 8: Diversify results if requested
@@ -200,6 +212,7 @@ export async function POST(request: Request) {
         extractedParams: extractedParams,
         threshold: threshold,
         reranked: useReranking,
+        agentic: useAgentic,
         diversified: useDiversify,
         // Search suggestions
         didYouMean: didYouMean.length > 0 ? didYouMean : null,

@@ -20,9 +20,50 @@ export interface Vendor {
   location_address: string;
   location_lat: number;
   location_lng: number;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  event_types: string[];
   status: 'pending' | 'verified' | 'rejected';
   created_at: string;
   updated_at: string;
+}
+
+// Day of week availability
+export interface DayAvailability {
+  isOpen: boolean;
+  openTime: string;  // Format: "9:00 AM"
+  closeTime: string; // Format: "10:00 PM"
+}
+
+// Weekly availability schedule
+export interface WeeklyAvailability {
+  monday: DayAvailability;
+  tuesday: DayAvailability;
+  wednesday: DayAvailability;
+  thursday: DayAvailability;
+  friday: DayAvailability;
+  saturday: DayAvailability;
+  sunday: DayAvailability;
+}
+
+// Exception date (holidays, special closures)
+export interface ExceptionDate {
+  date: string; // Format: "YYYY-MM-DD"
+  reason: string;
+}
+
+// Enhanced venue details structure
+export interface VenueDetails {
+  name: string;
+  min_capacity: number;
+  max_capacity: number;
+  square_footage?: number;
+  short_description?: string;
+  amenities: string[];
+  availability?: WeeklyAvailability;
+  exception_dates?: ExceptionDate[];
 }
 
 export interface Package {
@@ -30,11 +71,7 @@ export interface Package {
   vendor_id: string;
   name: string;
   description: string;
-  venue_details?: {
-    name: string;
-    capacity: number;
-    amenities: string[];
-  };
+  venue_details?: VenueDetails;
   catering_details?: {
     menu_options: string[];
     dietary_accommodations: string[];
@@ -45,9 +82,12 @@ export interface Package {
   };
   price_min: number;
   price_max: number;
+  hourly_rate_min?: number;
+  hourly_rate_max?: number;
   capacity: number;
   photos: string[];
   status: 'draft' | 'published';
+  embedding?: number[]; // Vector embedding for AI search
   created_at: string;
   updated_at: string;
   vendor?: Vendor;
@@ -107,3 +147,131 @@ export interface MessageWithStatus extends Message {
   tempId?: string; // Temporary ID for optimistic updates
   error?: string; // Error message if failed
 }
+
+// =====================================================
+// MULTI-STEP PACKAGE WIZARD TYPES
+// =====================================================
+
+// Step 1: Service Selection
+export interface ServiceSelectionData {
+  services: string[]; // ['catering', 'venue', 'entertainment', 'rentals']
+}
+
+// Step 2: Account Creation (skip if already authenticated)
+export interface AccountCreationData {
+  full_name: string;
+  venue_name?: string; // Alternative to full_name for businesses
+  email: string;
+  phone?: string;
+}
+
+// Step 3: Business Location
+export interface BusinessLocationData {
+  street_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+  location_lat?: number;
+  location_lng?: number;
+}
+
+// Step 4: Event Types
+export interface EventTypesData {
+  event_types: string[];
+}
+
+// Step 5: Venue Information
+export interface VenueInformationData {
+  min_capacity: number;
+  max_capacity: number;
+  square_footage?: number;
+  short_description: string;
+  hourly_rate_min: number;
+  hourly_rate_max: number;
+  amenities: string[];
+  availability: WeeklyAvailability;
+  exception_dates: ExceptionDate[];
+  photos: string[];
+}
+
+// Complete wizard form data
+export interface PackageWizardData {
+  step1: ServiceSelectionData;
+  step2: AccountCreationData;
+  step3: BusinessLocationData;
+  step4: EventTypesData;
+  step5: VenueInformationData;
+}
+
+// Wizard step numbers
+export type WizardStep = 1 | 2 | 3 | 4 | 5;
+
+// =====================================================
+// PREDEFINED OPTIONS & CONSTANTS
+// =====================================================
+
+export const EVENT_TYPES = [
+  'Weddings',
+  'Bridal Party',
+  'Birthday Party',
+  'Quinceanera',
+  'Graduation Party',
+  'Baby Shower',
+  'Corporate Event',
+  'Networking Event',
+  'Holiday Party',
+  'Live Music',
+  'Watch Party',
+  'Dance Performance',
+  'Private Dinner',
+  'Fitness Class',
+  'Fashion Show',
+  'Political Gathering',
+  'Reunion',
+  'Bar/Bat Mitzvah',
+  'Cultural Festival',
+  'Other',
+] as const;
+
+export const COMMON_AMENITIES = [
+  'Wi-Fi',
+  'Restrooms',
+  'Catering Allowed',
+  'Tables & Chairs',
+  'Wheelchair Access',
+  'Parking',
+  'Stage',
+  'Dance Floor',
+  'Audio System',
+  'Projector',
+  'Kitchen',
+  'Bar Area',
+  'Outdoor Space',
+  'Air Conditioning',
+  'Heating',
+  'Security',
+  'Loading Dock',
+  'Green Room',
+  'Photography Allowed',
+  'Alcohol Allowed',
+] as const;
+
+export const SERVICE_TYPES = [
+  { id: 'catering', label: 'Catering', icon: '🍽️' },
+  { id: 'venue', label: 'Venue', icon: '🏢' },
+  { id: 'entertainment', label: 'Entertainment', icon: '🎵' },
+  { id: 'rentals', label: 'Rentals', icon: '🪑' },
+] as const;
+
+export const DAYS_OF_WEEK = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
+
+export type DayOfWeek = typeof DAYS_OF_WEEK[number];
