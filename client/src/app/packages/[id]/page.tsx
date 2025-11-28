@@ -276,7 +276,7 @@ export default function PackageDetailPage() {
                     <div className="rounded-lg bg-slate-50 p-4 space-y-2">
                       <p className="font-medium">{pkg.venue_details.name}</p>
                       <p className="text-sm text-slate-600">
-                        Capacity: {pkg.venue_details.capacity} guests
+                        Capacity: {pkg.venue_details.min_capacity} - {pkg.venue_details.max_capacity} guests
                       </p>
                       {pkg.venue_details.amenities && pkg.venue_details.amenities.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">

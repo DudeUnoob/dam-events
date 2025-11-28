@@ -275,3 +275,204 @@ export const DAYS_OF_WEEK = [
 ] as const;
 
 export type DayOfWeek = typeof DAYS_OF_WEEK[number];
+
+// =====================================================
+// VENDOR ONBOARDING WIZARD TYPES
+// =====================================================
+
+export type ServiceType = 'venue' | 'catering' | 'entertainment' | 'rentals';
+
+// Step 1: Service Selection (can select multiple)
+export interface OnboardingStep1Data {
+  services: ServiceType[];
+}
+
+// Step 2: Account/Business Info
+export interface OnboardingStep2Data {
+  businessName: string;
+  phone: string;
+}
+
+// Step 3: Business Location
+export interface OnboardingStep3Data {
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+}
+
+// Step 4: Service-specific questions (varies by service type)
+export interface OnboardingStep4VenueData {
+  eventTypes: string[];
+}
+
+export interface OnboardingStep4CateringData {
+  foodTypes: string[];
+}
+
+export interface OnboardingStep4EntertainmentData {
+  entertainmentTypes: string[];
+}
+
+export interface OnboardingStep4RentalsData {
+  rentalTypes: string[];
+  deliveryOptions: string[];
+}
+
+// Step 5: Service-specific details (varies by service type)
+export interface OnboardingStep5VenueData {
+  minCapacity: number;
+  maxCapacity: number;
+  squareFootage?: number;
+  shortDescription: string;
+  hourlyRateMin: number;
+  hourlyRateMax: number;
+  amenities: string[];
+  availability: WeeklyAvailability;
+  exceptionDates: ExceptionDate[];
+  photos: string[];
+}
+
+export interface OnboardingStep5CateringData {
+  minGuestCount: number;
+  maxGuestCount: number;
+  shortDescription: string;
+  pricePerPersonMin: number;
+  pricePerPersonMax: number;
+  servicesOffered: string[];
+  availability: WeeklyAvailability;
+  exceptionDates: ExceptionDate[];
+  photos: string[];
+}
+
+export interface OnboardingStep5EntertainmentData {
+  minPerformanceDuration: number; // in minutes
+  maxPerformanceDuration: number;
+  shortDescription: string;
+  hourlyRateMin: number;
+  hourlyRateMax: number;
+  equipmentProvided: string[];
+  availability: WeeklyAvailability;
+  exceptionDates: ExceptionDate[];
+  photos: string[];
+}
+
+export interface ItemizedPricing {
+  itemType: string;
+  pricePerItem: number;
+  maxQuantity: number;
+}
+
+export interface OnboardingStep5RentalsData {
+  minOrderSize: number;
+  maxOrderSize: number;
+  shortDescription: string;
+  itemizedPricing: ItemizedPricing[];
+  servicesOffered: string[];
+  availability: WeeklyAvailability;
+  exceptionDates: ExceptionDate[];
+  photos: string[];
+}
+
+// Complete onboarding form data
+export interface OnboardingFormData {
+  // Steps 1-3 (common for all)
+  step1: OnboardingStep1Data;
+  step2: OnboardingStep2Data;
+  step3: OnboardingStep3Data;
+
+  // Steps 4-5 (service-specific, keyed by service type)
+  venueStep4?: OnboardingStep4VenueData;
+  venueStep5?: OnboardingStep5VenueData;
+  cateringStep4?: OnboardingStep4CateringData;
+  cateringStep5?: OnboardingStep5CateringData;
+  entertainmentStep4?: OnboardingStep4EntertainmentData;
+  entertainmentStep5?: OnboardingStep5EntertainmentData;
+  rentalsStep4?: OnboardingStep4RentalsData;
+  rentalsStep5?: OnboardingStep5RentalsData;
+}
+
+// =====================================================
+// PREDEFINED OPTIONS FOR SERVICE-SPECIFIC FORMS
+// =====================================================
+
+export const FOOD_TYPES = [
+  'BBQ & Grill',
+  'Seafood Specialty',
+  'Buffet Style',
+  'Vegetarian',
+  'Vegan',
+  'Multi-Course Dinner',
+  'Italian Cuisine',
+  'Mexican Cuisine',
+  'Mediterranean Cuisine',
+  'Asian Fusion',
+  'Kosher',
+  'Gluten-Free',
+  'Custom Menus',
+  'Desserts & Pastries',
+  'Other',
+] as const;
+
+export const ENTERTAINMENT_TYPES = [
+  'Live Band',
+  'DJ Services',
+  'Solo Performer',
+  'Acoustic Set',
+  'Dance Troupe',
+  'Comedy / MC',
+  'Instrumentalist',
+  'Wedding Ceremony Music',
+  'Corporate Event Entertainment',
+  'Custom Performances',
+  'Lighting & Audio Packages',
+  'Other',
+] as const;
+
+export const RENTAL_TYPES = [
+  'Tables',
+  'Chairs',
+  'Linens & Napkins',
+  'Tents & Canopies',
+  'Centerpieces & Florals',
+  'Tableware (Plates, Glassware, Cutlery)',
+  'Staging / Flooring',
+  'Lighting & Decor',
+  'Lounge Furniture',
+  'Bar Equipment',
+  'Arches & Backdrops',
+  'Other',
+] as const;
+
+export const DELIVERY_OPTIONS = [
+  'Delivery Only',
+  'Delivery + Setup',
+  'Pickup by Client',
+] as const;
+
+export const CATERING_SERVICES = [
+  'Buffet Service',
+  'Plated Service',
+  'Bartending',
+  'Dessert Station',
+  'Food Truck Option',
+] as const;
+
+export const RENTALS_SERVICES = [
+  'Setup',
+  'Tear Down',
+  'Cleaning Service',
+  'Custom Orders Available',
+] as const;
+
+export const ENTERTAINMENT_EQUIPMENT = [
+  'Stage Lighting',
+  'Microphones',
+  'Fog Machine',
+  'DJ Booth Setup',
+  'Sound System',
+  'Speakers',
+  'Mixing Board',
+  'Instruments',
+] as const;

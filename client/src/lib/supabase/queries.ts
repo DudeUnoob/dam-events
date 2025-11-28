@@ -22,7 +22,7 @@ export async function getCurrentUserProfile(supabase: Client) {
     .from('users')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   return { data, error };
 }
@@ -35,7 +35,7 @@ export async function getVendorByUserId(supabase: Client, userId: string) {
     .from('vendors')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   return { data, error };
 }

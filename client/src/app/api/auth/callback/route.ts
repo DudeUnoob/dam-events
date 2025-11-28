@@ -36,6 +36,20 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${requestUrl.origin}/signup/complete`);
   }
 
+  // For vendors, check if they have completed onboarding (have a vendor profile)
+  if (profile.role === 'vendor') {
+    const { data: vendor } = await supabase
+      .from('vendors')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // If no vendor profile exists, redirect to onboarding
+    if (!vendor) {
+      return NextResponse.redirect(`${requestUrl.origin}/vendor/onboarding`);
+    }
+  }
+
   // Redirect to appropriate dashboard based on role
   const dashboardPaths: Record<string, string> = {
     planner: '/planner/dashboard',
