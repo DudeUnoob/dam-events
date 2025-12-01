@@ -80,6 +80,10 @@ export interface Package {
     type: string;
     equipment: string[];
   };
+  rental_details?: {
+    rental_type?: string;
+    items?: string[];
+  };
   price_min: number;
   price_max: number;
   hourly_rate_min?: number;

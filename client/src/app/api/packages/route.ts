@@ -218,6 +218,13 @@ export async function GET(request: Request) {
     // Optional: include all packages regardless of status (for development/testing)
     const includeAll = searchParams.get('includeAll') === 'true';
 
+    // New Filters
+    const serviceType = searchParams.get('service_type');
+    const minPrice = searchParams.get('min_price') ? Number(searchParams.get('min_price')) : null;
+    const maxPrice = searchParams.get('max_price') ? Number(searchParams.get('max_price')) : null;
+    const minCapacity = searchParams.get('min_capacity') ? Number(searchParams.get('min_capacity')) : null;
+    const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : null;
+
     // If vendorId is provided, return packages for that vendor (including drafts)
     if (vendorId) {
       const { data: packages, error: pkgError } = await supabase
@@ -268,6 +275,21 @@ export async function GET(request: Request) {
           .eq('vendors.status', 'verified');
       }
 
+      // Apply additional filters if present (refining the match pool)
+      if (serviceType) {
+        matchQuery = matchQuery.eq('service_type', serviceType);
+      }
+      if (minPrice !== null) {
+        matchQuery = matchQuery.lte('price_min', minPrice); // Package starts within budget? Or use overlap logic?
+        // Let's stick to simple: if user has budget X, package min price should be <= X
+      }
+      if (maxPrice !== null) {
+        matchQuery = matchQuery.lte('price_min', maxPrice);
+      }
+      if (minCapacity !== null) {
+        matchQuery = matchQuery.gte('capacity', minCapacity);
+      }
+
       const { data: packages, error: pkgError } = await matchQuery;
 
       if (pkgError) {
@@ -289,10 +311,13 @@ export async function GET(request: Request) {
       // Apply matching algorithm
       const matchedPackages = matchPackages(transformedPackages, event);
 
-      return NextResponse.json({ data: matchedPackages, error: null }, { status: 200 });
+      // Apply limit if requested
+      const finalPackages = limit ? matchedPackages.slice(0, limit) : matchedPackages;
+
+      return NextResponse.json({ data: finalPackages, error: null }, { status: 200 });
     }
 
-    // Otherwise, return all published packages (or all packages if includeAll=true)
+    // Otherwise, return filtered packages
     let query = supabase
       .from('packages')
       .select(`
@@ -306,6 +331,33 @@ export async function GET(request: Request) {
       query = query
         .eq('status', 'published')
         .eq('vendors.status', 'verified');
+    }
+
+    // Apply filters
+    if (serviceType) {
+      query = query.eq('service_type', serviceType);
+    }
+
+    // Price filtering: 
+    // If user sets max_price (budget), we want packages where price_min <= budget
+    if (maxPrice !== null) {
+      query = query.lte('price_min', maxPrice);
+    }
+    // If user sets min_price (e.g. looking for premium), maybe price_max >= min_price?
+    // Let's assume standard "price range" filter:
+    // Package range [pkg_min, pkg_max] overlaps with Filter range [filter_min, filter_max]
+    // Overlap condition: pkg_min <= filter_max AND pkg_max >= filter_min
+
+    if (minPrice !== null) {
+      query = query.gte('price_max', minPrice);
+    }
+
+    if (minCapacity !== null) {
+      query = query.gte('capacity', minCapacity);
+    }
+
+    if (limit) {
+      query = query.limit(limit);
     }
 
     const { data: packages, error: pkgError } = await query;
