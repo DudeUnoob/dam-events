@@ -66,6 +66,23 @@ export interface VenueDetails {
   exception_dates?: ExceptionDate[];
 }
 
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image_url?: string;
+  popular?: boolean;
+  dietary_tags?: string[]; // 'vegan', 'gluten-free', etc.
+}
+
+export interface MenuCategory {
+  id: string;
+  name: string; // e.g., "Appetizers", "Main Course"
+  description?: string;
+  items: MenuItem[];
+}
+
 export interface Package {
   id: string;
   vendor_id: string;
@@ -73,8 +90,9 @@ export interface Package {
   description: string;
   venue_details?: VenueDetails;
   catering_details?: {
-    menu_options: string[];
+    menu_options: string[]; // Legacy support
     dietary_accommodations: string[];
+    menu_categories?: MenuCategory[]; // New structured menu
   };
   entertainment_details?: {
     type: string;

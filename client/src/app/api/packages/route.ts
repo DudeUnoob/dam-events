@@ -317,61 +317,91 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: finalPackages, error: null }, { status: 200 });
     }
 
-    // Otherwise, return filtered packages
-    let query = supabase
-      .from('packages')
-      .select(`
-        *,
-        vendors(*)
-      `)
-      .order('created_at', { ascending: false });
+    // Helper to apply common filters
+    const applyFilters = (q: any) => {
+      // Only apply status filters if not including all packages
+      if (!includeAll) {
+        q = q
+          .eq('status', 'published')
+          .eq('vendors.status', 'verified');
+      }
 
-    // Only apply status filters if not including all packages
-    if (!includeAll) {
-      query = query
-        .eq('status', 'published')
-        .eq('vendors.status', 'verified');
-    }
+      // Price filtering
+      if (maxPrice !== null) {
+        q = q.lte('price_min', maxPrice);
+      }
+      if (minPrice !== null) {
+        q = q.gte('price_max', minPrice);
+      }
 
-    // Apply filters
+      if (minCapacity !== null) {
+        q = q.gte('capacity', minCapacity);
+      }
+
+      return q;
+    };
+
+    let packages: any[] = [];
+
     if (serviceType) {
-      query = query.eq('service_type', serviceType);
-    }
+      // Strategy: Run two queries and merge results
+      // 1. Packages matching the service_type directly
+      let queryA = supabase
+        .from('packages')
+        .select(`*, vendors!inner(*)`)
+        .eq('service_type', serviceType);
 
-    // Price filtering: 
-    // If user sets max_price (budget), we want packages where price_min <= budget
-    if (maxPrice !== null) {
-      query = query.lte('price_min', maxPrice);
-    }
-    // If user sets min_price (e.g. looking for premium), maybe price_max >= min_price?
-    // Let's assume standard "price range" filter:
-    // Package range [pkg_min, pkg_max] overlaps with Filter range [filter_min, filter_max]
-    // Overlap condition: pkg_min <= filter_max AND pkg_max >= filter_min
+      queryA = applyFilters(queryA);
 
-    if (minPrice !== null) {
-      query = query.gte('price_max', minPrice);
-    }
+      // 2. Packages where the VENDOR offers the service
+      let queryB = supabase
+        .from('packages')
+        .select(`*, vendors!inner(*)`)
+        .contains('vendors.services', [serviceType]);
 
-    if (minCapacity !== null) {
-      query = query.gte('capacity', minCapacity);
-    }
+      queryB = applyFilters(queryB);
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+      // Execute in parallel
+      const [resA, resB] = await Promise.all([queryA, queryB]);
 
-    const { data: packages, error: pkgError } = await query;
+      if (resA.error) throw resA.error;
+      if (resB.error) throw resB.error;
 
-    if (pkgError) {
-      console.error('Error fetching packages:', pkgError);
-      return NextResponse.json(
-        { data: null, error: { message: pkgError.message, code: 'DB_ERROR' } },
-        { status: 500 }
-      );
+      // Merge and deduplicate by ID
+      const map = new Map();
+      [...(resA.data || []), ...(resB.data || [])].forEach(pkg => {
+        map.set(pkg.id, pkg);
+      });
+      packages = Array.from(map.values());
+
+      // Sort by created_at desc (manual sort since we merged)
+      packages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Apply limit manually if needed
+      if (limit) {
+        packages = packages.slice(0, limit);
+      }
+
+    } else {
+      // Standard query without service_type OR logic
+      let query = supabase
+        .from('packages')
+        .select(`*, vendors(*)`)
+        .order('created_at', { ascending: false });
+
+      query = applyFilters(query);
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      packages = data || [];
     }
 
     // Filter out packages without vendor data and transform
-    const transformedPackages = (packages || [])
+    const transformedPackages = packages
       .filter((pkg: any) => pkg.vendors) // Only include packages with vendor data
       .map((pkg: any) => ({
         ...pkg,
