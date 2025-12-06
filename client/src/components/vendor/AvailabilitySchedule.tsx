@@ -1,7 +1,7 @@
 'use client';
 
 import { WeeklyAvailability, DayOfWeek, DAYS_OF_WEEK } from '@/types';
-import { TimeSelect } from '@/components/ui/TimeSelect';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AvailabilityScheduleProps {
@@ -11,14 +11,65 @@ interface AvailabilityScheduleProps {
 }
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
 };
+
+// Generate time options in 30-minute increments
+function generateTimeOptions(): string[] {
+  const times: string[] = [];
+  for (let hour = 6; hour <= 23; hour++) {
+    ['00', '30'].forEach((minute) => {
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      times.push(`${displayHour}:${minute} ${period}`);
+    });
+  }
+  return times;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
+// Figma-styled time select
+function FigmaTimeSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={cn(
+          'appearance-none w-full h-[38px] px-3 pr-8',
+          'bg-white border border-black/20 rounded-[8px]',
+          'text-[14px] text-black/80',
+          'focus:outline-none focus:ring-1 focus:ring-[#65a4d8]/50',
+          'disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed'
+        )}
+        style={{ fontFamily: "'Inter', sans-serif" }}
+      >
+        {TIME_OPTIONS.map((time) => (
+          <option key={time} value={time}>
+            {time}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40 pointer-events-none" />
+    </div>
+  );
+}
 
 export function AvailabilitySchedule({
   availability,
@@ -39,140 +90,108 @@ export function AvailabilitySchedule({
     });
   };
 
-  const applyToAllDays = (template: 'weekdays' | 'weekend' | 'all') => {
-    const defaultOpen = availability.monday.isOpen
-      ? availability.monday
-      : { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' };
-
-    const newAvailability = { ...availability };
-
-    if (template === 'all') {
-      DAYS_OF_WEEK.forEach((day) => {
-        newAvailability[day] = { ...defaultOpen };
-      });
-    } else if (template === 'weekdays') {
-      (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as DayOfWeek[]).forEach(
-        (day) => {
-          newAvailability[day] = { ...defaultOpen };
-        }
-      );
-    } else if (template === 'weekend') {
-      (['saturday', 'sunday'] as DayOfWeek[]).forEach((day) => {
-        newAvailability[day] = { ...defaultOpen };
-      });
-    }
-
-    onChange(newAvailability);
-  };
-
   return (
     <div className={cn('w-full', className)}>
-      <div className="mb-4 flex items-center justify-between">
-        <label className="block text-sm font-medium text-slate-700">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3
+          className="text-lg md:text-xl font-medium text-black"
+          style={{ fontFamily: "'Urbanist', sans-serif" }}
+        >
           Availability Schedule
-        </label>
-
-        {/* Quick Apply Buttons */}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => applyToAllDays('weekdays')}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Apply to Weekdays
-          </button>
-          <button
-            type="button"
-            onClick={() => applyToAllDays('weekend')}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Apply to Weekend
-          </button>
-          <button
-            type="button"
-            onClick={() => applyToAllDays('all')}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Apply to All
-          </button>
-        </div>
+        </h3>
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <table className="w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                Day
-              </th>
-              <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">
-                Open
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                Open Time
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                Close Time
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {DAYS_OF_WEEK.map((day) => {
-              const dayData = availability[day];
-              return (
-                <tr
-                  key={day}
+      <div className="rounded-[12px] border border-black/10 overflow-hidden">
+        {/* Header Row */}
+        <div className="grid grid-cols-3 bg-[#f8f9fb] border-b border-black/10">
+          <div className="px-4 py-3">
+            <span
+              className="inline-block bg-[#e8eef4] rounded-full px-4 py-1 text-[13px] font-medium text-black/70"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Day
+            </span>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <span
+              className="inline-block bg-[#e8eef4] rounded-full px-4 py-1 text-[13px] font-medium text-black/70"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Open
+            </span>
+          </div>
+          <div className="px-4 py-3 text-center">
+            <span
+              className="inline-block bg-[#e8eef4] rounded-full px-4 py-1 text-[13px] font-medium text-black/70"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Close
+            </span>
+          </div>
+        </div>
+
+        {/* Day Rows */}
+        {DAYS_OF_WEEK.map((day) => {
+          const dayData = availability[day];
+          return (
+            <div
+              key={day}
+              className={cn(
+                'grid grid-cols-3 border-b border-black/5 last:border-b-0',
+                dayData.isOpen ? 'bg-white' : 'bg-slate-50/50'
+              )}
+            >
+              {/* Day Name with Toggle */}
+              <div className="px-4 py-3 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={dayData.isOpen}
+                  onChange={(e) => updateDay(day, 'isOpen', e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-[#65a4d8] focus:ring-[#65a4d8]/20"
+                />
+                <span
                   className={cn(
-                    'transition-colors',
-                    dayData.isOpen ? 'bg-white' : 'bg-slate-50'
+                    'text-[14px] font-medium',
+                    dayData.isOpen ? 'text-black' : 'text-black/40'
                   )}
+                  style={{ fontFamily: "'Inter', sans-serif" }}
                 >
-                  {/* Day Name */}
-                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                    {DAY_LABELS[day]}
-                  </td>
+                  {DAY_LABELS[day]}
+                </span>
+              </div>
 
-                  {/* Open Checkbox */}
-                  <td className="px-4 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={dayData.isOpen}
-                      onChange={(e) => updateDay(day, 'isOpen', e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/20"
-                    />
-                  </td>
+              {/* Open Time */}
+              <div className="px-3 py-2">
+                <FigmaTimeSelect
+                  value={dayData.openTime}
+                  onChange={(val) => updateDay(day, 'openTime', val)}
+                  disabled={!dayData.isOpen}
+                />
+              </div>
 
-                  {/* Open Time */}
-                  <td className="px-4 py-3">
-                    <TimeSelect
-                      value={dayData.openTime}
-                      onChange={(e) => updateDay(day, 'openTime', e.target.value)}
-                      disabled={!dayData.isOpen}
-                      className="w-full max-w-[160px]"
-                    />
-                  </td>
-
-                  {/* Close Time */}
-                  <td className="px-4 py-3">
-                    <TimeSelect
-                      value={dayData.closeTime}
-                      onChange={(e) => updateDay(day, 'closeTime', e.target.value)}
-                      disabled={!dayData.isOpen}
-                      className="w-full max-w-[160px]"
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              {/* Close Time */}
+              <div className="px-3 py-2">
+                <FigmaTimeSelect
+                  value={dayData.closeTime}
+                  onChange={(val) => updateDay(day, 'closeTime', val)}
+                  disabled={!dayData.isOpen}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <p className="mt-2 text-xs text-slate-500">
-        Set your venue&apos;s availability for each day of the week. Use the quick apply
-        buttons to set the same hours for multiple days.
-      </p>
+      {/* Exception Dates Link */}
+      <button
+        type="button"
+        className="mt-3 text-[14px] text-[#65a4d8] hover:underline"
+        style={{ fontFamily: "'Inter', sans-serif" }}
+      >
+        + Add Exception Dates
+      </button>
     </div>
   );
 }

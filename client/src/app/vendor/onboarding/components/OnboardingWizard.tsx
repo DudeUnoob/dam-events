@@ -8,7 +8,20 @@ import {
   OnboardingFormData,
   ServiceType,
   WeeklyAvailability,
+  OnboardingStep5VenueData,
+  OnboardingStep5CateringData,
+  OnboardingStep5EntertainmentData,
+  OnboardingStep5RentalsData,
 } from '@/types';
+
+// Package type for storing multiple packages per service
+interface SavedPackage {
+  id: string;
+  service: ServiceType;
+  step4Data: any;
+  step5Data: OnboardingStep5VenueData | OnboardingStep5CateringData | OnboardingStep5EntertainmentData | OnboardingStep5RentalsData;
+  createdAt: Date;
+}
 
 // Step components
 import { StepIndicator } from './StepIndicator';
@@ -61,6 +74,7 @@ export function OnboardingWizard() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [savedPackages, setSavedPackages] = useState<SavedPackage[]>([]);
 
   // Load saved data from localStorage on mount
   useEffect(() => {
@@ -70,6 +84,7 @@ export function OnboardingWizard() {
         const parsed = JSON.parse(savedData);
         setFormData(parsed.formData || initialFormData);
         setCurrentStepIndex(parsed.currentStepIndex || 0);
+        setSavedPackages(parsed.savedPackages || []);
       } catch (e) {
         console.error('Failed to parse saved onboarding data:', e);
       }
@@ -83,9 +98,10 @@ export function OnboardingWizard() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         formData,
         currentStepIndex,
+        savedPackages,
       }));
     }
-  }, [formData, currentStepIndex, isLoaded]);
+  }, [formData, currentStepIndex, savedPackages, isLoaded]);
 
   // Build the dynamic step list based on selected services
   const buildStepList = useCallback((): StepInfo[] => {
@@ -309,17 +325,135 @@ export function OnboardingWizard() {
     }
   };
 
+  // Handle create package (saves current Step 5 data and resets for a new package)
+  const handleCreatePackage = () => {
+    if (!currentStep || currentStep.stepType !== 'step5' || !currentStep.service) {
+      return;
+    }
+
+    // Validate current step first
+    if (!validateCurrentStep()) {
+      showToast('Please complete all required fields before creating a package', 'error');
+      return;
+    }
+
+    const service = currentStep.service;
+    let step4Data: any = null;
+    let step5Data: any = null;
+
+    // Get the current step 4 and step 5 data
+    if (service === 'venue') {
+      step4Data = formData.venueStep4;
+      step5Data = formData.venueStep5;
+    } else if (service === 'catering') {
+      step4Data = formData.cateringStep4;
+      step5Data = formData.cateringStep5;
+    } else if (service === 'entertainment') {
+      step4Data = formData.entertainmentStep4;
+      step5Data = formData.entertainmentStep5;
+    } else if (service === 'rentals') {
+      step4Data = formData.rentalsStep4;
+      step5Data = formData.rentalsStep5;
+    }
+
+    if (!step5Data) {
+      showToast('No data to save', 'error');
+      return;
+    }
+
+    // Create a new package
+    const newPackage: SavedPackage = {
+      id: `pkg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      service,
+      step4Data: { ...step4Data },
+      step5Data: { ...step5Data },
+      createdAt: new Date(),
+    };
+
+    // Save the package
+    setSavedPackages((prev) => [...prev, newPackage]);
+
+    // Reset the Step 5 data for a new package
+    const newFormData = { ...formData };
+    if (service === 'venue') {
+      newFormData.venueStep5 = {
+        minCapacity: 0,
+        maxCapacity: 0,
+        shortDescription: '',
+        hourlyRateMin: 0,
+        hourlyRateMax: 0,
+        amenities: [],
+        availability: defaultAvailability,
+        exceptionDates: [],
+        photos: [],
+      };
+    } else if (service === 'catering') {
+      newFormData.cateringStep5 = {
+        minGuestCount: 0,
+        maxGuestCount: 0,
+        shortDescription: '',
+        pricePerPersonMin: 0,
+        pricePerPersonMax: 0,
+        servicesOffered: [],
+        availability: defaultAvailability,
+        exceptionDates: [],
+        photos: [],
+      };
+    } else if (service === 'entertainment') {
+      newFormData.entertainmentStep5 = {
+        minPerformanceDuration: 0,
+        maxPerformanceDuration: 0,
+        shortDescription: '',
+        hourlyRateMin: 0,
+        hourlyRateMax: 0,
+        equipmentProvided: [],
+        availability: defaultAvailability,
+        exceptionDates: [],
+        photos: [],
+      };
+    } else if (service === 'rentals') {
+      newFormData.rentalsStep5 = {
+        minOrderSize: 0,
+        maxOrderSize: 0,
+        shortDescription: '',
+        itemizedPricing: [],
+        servicesOffered: [],
+        availability: defaultAvailability,
+        exceptionDates: [],
+        photos: [],
+      };
+    }
+    setFormData(newFormData);
+
+    const packageCount = savedPackages.filter((p) => p.service === service).length + 1;
+    showToast(`Package ${packageCount} saved! You can now create another package or continue.`, 'success');
+  };
+
+  // Check if current step is a Step 5 (shows Create Package button)
+  const isStep5 = currentStep?.stepType === 'step5';
+
+  // Get count of saved packages for current service
+  const currentServicePackageCount = currentStep?.service
+    ? savedPackages.filter((p) => p.service === currentStep.service).length
+    : 0;
+
   // Handle form submission
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
     try {
+      // Include both saved packages and the current form data (which may contain an unsaved package)
+      const submissionData = {
+        ...formData,
+        savedPackages,
+      };
+
       const response = await fetch('/api/vendors/onboarding', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
       const data = await response.json();
@@ -468,6 +602,19 @@ export function OnboardingWizard() {
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Package Count Indicator (shown on Step 5) */}
+        {isStep5 && currentServicePackageCount > 0 && (
+          <div
+            className="mb-4 px-4 py-3 bg-[rgba(101,164,216,0.1)] border border-[#65a4d8]/30 rounded-lg"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            <p className="text-[14px] text-[#65a4d8]">
+              <span className="font-medium">{currentServicePackageCount}</span> package
+              {currentServicePackageCount !== 1 ? 's' : ''} saved for this service.
+              Fill out the form below to create another package, or click Continue to proceed.
+            </p>
+          </div>
+        )}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
           {renderStep()}
         </div>
@@ -482,6 +629,8 @@ export function OnboardingWizard() {
             isFirstStep={isFirstStep}
             isLastStep={isLastStep}
             isSubmitting={isSubmitting}
+            onCreatePackage={handleCreatePackage}
+            showCreatePackage={isStep5}
           />
         </div>
       </div>

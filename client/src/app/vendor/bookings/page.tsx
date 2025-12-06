@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { VendorDashboardTabs } from '@/components/vendor/dashboard/VendorDashboardTabs';
 import { ServiceTypeTabs } from '@/components/vendor/dashboard/ServiceTypeTabs';
-import { DashboardStatsCards } from '@/components/vendor/dashboard/StatsCards';
-import { LeadsTable } from '@/components/vendor/dashboard/LeadsTable';
+import { BookingsView } from '@/components/vendor/bookings/BookingsView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { Lead, Vendor, ServiceType } from '@/types';
 
-export default function VendorDashboard() {
+export default function VendorBookings() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -41,8 +40,8 @@ export default function VendorDashboard() {
     }
   }, [user]);
 
-  // Fetch leads
-  const fetchLeads = useCallback(async () => {
+  // Fetch booked leads
+  const fetchBookings = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -53,13 +52,17 @@ export default function VendorDashboard() {
       const data = await response.json();
 
       if (response.ok && data.data) {
-        setLeads(data.data);
+        // Filter for booked leads only
+        const bookedLeads = data.data.filter(
+          (lead: Lead) => lead.status === 'booked'
+        );
+        setLeads(bookedLeads);
       } else {
-        setError(data.error?.message || 'Failed to fetch leads');
+        setError(data.error?.message || 'Failed to fetch bookings');
       }
     } catch (err) {
-      console.error('Error fetching leads:', err);
-      setError('Failed to load leads. Please try again.');
+      console.error('Error fetching bookings:', err);
+      setError('Failed to load bookings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -68,9 +71,9 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (user && !authLoading) {
       fetchVendor();
-      fetchLeads();
+      fetchBookings();
     }
-  }, [user, authLoading, fetchVendor, fetchLeads]);
+  }, [user, authLoading, fetchVendor, fetchBookings]);
 
   // Get vendor services (default to venue if not available)
   const vendorServices: ServiceType[] = vendor?.services?.length
@@ -98,12 +101,6 @@ export default function VendorDashboard() {
         return leadService === activeService || leadService === null;
       })
     : leads;
-
-  // Calculate stats
-  const totalLeads = filteredLeads.length;
-  const quotesApproved = filteredLeads.filter((l) => l.status === 'quoted').length;
-  const bookedEvents = filteredLeads.filter((l) => l.status === 'booked').length;
-  const unviewedInquiries = filteredLeads.filter((l) => l.status === 'new').length;
 
   // Handle profile menu
   const handleProfileClick = () => {
@@ -153,37 +150,8 @@ export default function VendorDashboard() {
           </>
         )}
 
-        {/* Page Title */}
-        <div className="mt-8 mb-8">
-          <h1 className="text-4xl font-medium text-black font-inter">
-            Dashboard
-          </h1>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="mb-12">
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-[178px] rounded-[15px]" />
-              ))}
-            </div>
-          ) : (
-            <DashboardStatsCards
-              totalLeads={totalLeads}
-              quotesApproved={quotesApproved}
-              bookedEvents={bookedEvents}
-              unviewedInquiries={unviewedInquiries}
-            />
-          )}
-        </div>
-
-        {/* Leads Section */}
-        <div>
-          <h2 className="text-4xl font-medium text-black font-inter mb-6">
-            Leads
-          </h2>
-
+        {/* Content */}
+        <div className="mt-8">
           {/* Service Type Tabs (only for multi-service vendors) */}
           <ServiceTypeTabs
             services={vendorServices}
@@ -191,22 +159,25 @@ export default function VendorDashboard() {
             onServiceChange={setActiveService}
           />
 
-          {/* Leads Table */}
           {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-[61px] rounded-[20px]" />
-              <Skeleton className="h-[60px]" />
-              <Skeleton className="h-[60px]" />
-              <Skeleton className="h-[60px]" />
+            <div className="space-y-8">
+              <div className="bg-[rgba(224,219,255,0.25)] rounded-[20px] p-8">
+                <Skeleton className="h-10 w-48 mb-6" />
+                <Skeleton className="h-[200px] rounded-[15px]" />
+              </div>
+              <div className="bg-[rgba(224,219,255,0.25)] rounded-[20px] p-8">
+                <Skeleton className="h-10 w-48 mb-6" />
+                <Skeleton className="h-[200px] rounded-[15px]" />
+              </div>
             </div>
           ) : error ? (
             <ErrorState
-              title="Failed to load leads"
+              title="Failed to load bookings"
               message={error}
-              onRetry={fetchLeads}
+              onRetry={fetchBookings}
             />
           ) : (
-            <LeadsTable
+            <BookingsView
               leads={filteredLeads}
               serviceType={activeService}
             />

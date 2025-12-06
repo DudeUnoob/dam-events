@@ -3,9 +3,21 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { Calendar, Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User, Settings } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User, Settings, Home, Receipt, UserCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Scout Logo Icon
+const ScoutIcon = () => (
+  <svg width="41" height="45" viewBox="0 0 41 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="20" width="14.8" height="16.683" rx="2" fill="#232834" transform="rotate(-90 0 20)"/>
+    <rect x="26.2" y="45" width="14.8" height="16.683" rx="2" fill="#232834" transform="rotate(-90 26.2 45)"/>
+    <circle cx="9" cy="9" r="4" fill="#232834"/>
+    <circle cx="20.5" cy="21" r="4" fill="#232834"/>
+    <circle cx="32" cy="36" r="4" fill="#232834"/>
+    <circle cx="20.5" cy="33" r="4" fill="#232834"/>
+  </svg>
+);
 
 export function Navigation() {
   const pathname = usePathname();
@@ -44,134 +56,142 @@ export function Navigation() {
     return null;
   }
 
+  // Check if we're on the discovery page (home or browse)
+  const isDiscoveryPage = pathname === '/' || pathname === '/planner/browse';
+
   return (
-    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+    <nav className="sticky top-0 z-50 border-b border-black bg-white shadow-[0px_2px_2px_0px_rgba(0,0,0,0.25)]">
+      <div className="mx-auto max-w-[1512px] px-4 sm:px-6 lg:px-[37px]">
+        <div className="flex h-[66px] items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <Calendar className="h-8 w-8 text-primary-600" />
-            <span className="text-xl font-bold text-slate-900">DAM Events</span>
+            <ScoutIcon />
+            <span className="text-[26px] font-medium text-black font-urbanist">
+              scout
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden items-center gap-6 md:flex">
+          <div className="hidden items-center gap-3 md:flex">
             {!loading && user ? (
               <>
-                {/* Authenticated Navigation */}
+                {/* Home Icon - Active state with dark bg */}
                 <Link
-                  href={user.role === 'vendor' ? '/vendor/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/planner/dashboard'}
-                  className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
+                  href="/"
+                  className={`p-[7px] rounded-[20px] transition-colors ${
+                    pathname === '/' ? 'bg-[#232834]' : 'bg-[#f2f4f8] hover:bg-slate-200'
+                  }`}
                 >
-                  <LayoutDashboard className="inline h-4 w-4 mr-1.5" />
-                  Dashboard
+                  <Home className={`h-[27px] w-[27px] ${pathname === '/' ? 'text-white' : 'text-[#545f71]'}`} strokeWidth={1.5} />
                 </Link>
 
-                {user.role === 'planner' && (
-                  <Link
-                    href="/planner/browse"
-                    className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
-                  >
-                    <Package className="inline h-4 w-4 mr-1.5" />
-                    Browse Packages
-                  </Link>
-                )}
+                {/* Leads/Receipts Icon */}
+                <Link
+                  href={user.role === 'vendor' ? '/vendor/dashboard' : '/planner/dashboard'}
+                  className="p-[7px] rounded-[20px] bg-[#f2f4f8] hover:bg-slate-200 transition-colors"
+                >
+                  <Receipt className="h-[27px] w-[27px] text-[#545f71]" strokeWidth={1.5} />
+                </Link>
 
-                {user.role === 'vendor' && (
-                  <Link
-                    href="/vendor/packages"
-                    className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
-                  >
-                    <Package className="inline h-4 w-4 mr-1.5" />
-                    My Packages
-                  </Link>
-                )}
-
+                {/* Messages Icon */}
                 <Link
                   href="/messages"
-                  className="relative text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
+                  className="relative p-[6px] rounded-[20px] bg-[#f2f4f8] hover:bg-slate-200 transition-colors"
                 >
-                  <MessageSquare className="inline h-4 w-4 mr-1.5" />
-                  Messages
+                  <MessageSquare className="h-[29px] w-[29px] text-[#545f71]" strokeWidth={1.5} />
                   {unreadCount > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </Link>
 
-                {/* User Menu */}
-                <div className="relative">
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                  >
-                    <User className="h-4 w-4" />
-                    <span className="hidden lg:inline">{user.full_name}</span>
-                  </button>
+                {/* Profile Icon */}
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="p-[6px] rounded-[20px] bg-[#f2f4f8] hover:bg-slate-200 transition-colors"
+                >
+                  <UserCircle className="h-[27px] w-[27px] text-[#545f71]" strokeWidth={1.5} />
+                </button>
 
-                  {userMenuOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setUserMenuOpen(false)}
-                      />
-                      <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white shadow-lg">
-                        <div className="p-3 border-b border-slate-100">
-                          <p className="text-sm font-medium text-slate-900">{user.full_name}</p>
-                          <p className="text-xs text-slate-500">{user.email}</p>
-                          <p className="mt-1 text-xs text-primary-600 capitalize">{user.role}</p>
-                        </div>
-                        <div className="p-1">
-                          {user.role === 'planner' && (
-                            <Link
-                              href="/planner/profile"
-                              onClick={() => setUserMenuOpen(false)}
-                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                            >
-                              <Settings className="h-4 w-4" />
-                              Profile Settings
-                            </Link>
-                          )}
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              signOut();
-                            }}
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <LogOut className="h-4 w-4" />
-                            Sign Out
-                          </button>
-                        </div>
+                {userMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-[37px] top-[60px] z-20 w-56 rounded-lg border border-slate-200 bg-white shadow-lg">
+                      <div className="p-3 border-b border-slate-100">
+                        <p className="text-sm font-medium text-slate-900">{user.full_name}</p>
+                        <p className="text-xs text-slate-500">{user.email}</p>
+                        <p className="mt-1 text-xs text-primary-600 capitalize">{user.role}</p>
                       </div>
-                    </>
-                  )}
-                </div>
+                      <div className="p-1">
+                        {user.role === 'planner' && (
+                          <Link
+                            href="/planner/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <Settings className="h-4 w-4" />
+                            Profile Settings
+                          </Link>
+                        )}
+                        {user.role === 'vendor' && (
+                          <Link
+                            href="/vendor/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <Settings className="h-4 w-4" />
+                            Profile Settings
+                          </Link>
+                        )}
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            signOut();
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <>
                 {/* Unauthenticated Navigation */}
                 <Link
-                  href="/planner/browse"
-                  className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
+                  href="/"
+                  className={`p-[7px] rounded-[20px] transition-colors ${
+                    pathname === '/' ? 'bg-[#232834]' : 'bg-[#f2f4f8] hover:bg-slate-200'
+                  }`}
                 >
-                  Browse Packages
+                  <Home className={`h-[27px] w-[27px] ${pathname === '/' ? 'text-white' : 'text-[#545f71]'}`} strokeWidth={1.5} />
                 </Link>
-                <Link
-                  href="/signup?role=vendor"
-                  className="text-sm font-medium text-slate-700 transition-colors hover:text-primary-600"
-                >
-                  List Your Venue
-                </Link>
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href="/login">Sign In</Link>
-                  </Button>
-                  <Button size="sm" asChild>
-                    <Link href="/signup">Get Started</Link>
-                  </Button>
+
+                <div className="p-[7px] rounded-[20px] bg-[#f2f4f8]">
+                  <Receipt className="h-[27px] w-[27px] text-[#545f71]" strokeWidth={1.5} />
                 </div>
+
+                <div className="p-[6px] rounded-[20px] bg-[#f2f4f8]">
+                  <MessageSquare className="h-[29px] w-[29px] text-[#545f71]" strokeWidth={1.5} />
+                </div>
+
+                <div className="p-[6px] rounded-[20px] bg-[#f2f4f8]">
+                  <UserCircle className="h-[27px] w-[27px] text-[#545f71]" strokeWidth={1.5} />
+                </div>
+
+                <Link
+                  href="/login"
+                  className="text-[16px] font-normal text-black hover:text-slate-600 transition-colors"
+                >
+                  Sign in/Register
+                </Link>
               </>
             )}
           </div>
@@ -197,6 +217,15 @@ export function Navigation() {
             {!loading && user ? (
               <>
                 {/* Authenticated Mobile Nav */}
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Home className="h-4 w-4" />
+                  Home
+                </Link>
+
                 <Link
                   href={user.role === 'vendor' ? '/vendor/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/planner/dashboard'}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
@@ -273,6 +302,13 @@ export function Navigation() {
             ) : (
               <>
                 {/* Unauthenticated Mobile Nav */}
+                <Link
+                  href="/"
+                  className="block rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Home
+                </Link>
                 <Link
                   href="/planner/browse"
                   className="block rounded-lg px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100"

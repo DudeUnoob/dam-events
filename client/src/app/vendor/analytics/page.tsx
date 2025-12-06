@@ -5,19 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { VendorDashboardTabs } from '@/components/vendor/dashboard/VendorDashboardTabs';
 import { ServiceTypeTabs } from '@/components/vendor/dashboard/ServiceTypeTabs';
-import { DashboardStatsCards } from '@/components/vendor/dashboard/StatsCards';
-import { LeadsTable } from '@/components/vendor/dashboard/LeadsTable';
+import { AnalyticsOverview } from '@/components/vendor/analytics/AnalyticsOverview';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { ErrorState } from '@/components/shared/ErrorState';
-import { Lead, Vendor, ServiceType } from '@/types';
+import { Vendor, ServiceType } from '@/types';
 
-export default function VendorDashboard() {
+export default function VendorAnalytics() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeService, setActiveService] = useState<ServiceType>('venue');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -25,6 +21,7 @@ export default function VendorDashboard() {
   const fetchVendor = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
       const response = await fetch('/api/vendors');
       const data = await response.json();
@@ -38,28 +35,6 @@ export default function VendorDashboard() {
       }
     } catch (err) {
       console.error('Error fetching vendor:', err);
-    }
-  }, [user]);
-
-  // Fetch leads
-  const fetchLeads = useCallback(async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/leads?role=vendor');
-      const data = await response.json();
-
-      if (response.ok && data.data) {
-        setLeads(data.data);
-      } else {
-        setError(data.error?.message || 'Failed to fetch leads');
-      }
-    } catch (err) {
-      console.error('Error fetching leads:', err);
-      setError('Failed to load leads. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -68,42 +43,13 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (user && !authLoading) {
       fetchVendor();
-      fetchLeads();
     }
-  }, [user, authLoading, fetchVendor, fetchLeads]);
+  }, [user, authLoading, fetchVendor]);
 
   // Get vendor services (default to venue if not available)
   const vendorServices: ServiceType[] = vendor?.services?.length
     ? (vendor.services as ServiceType[])
     : ['venue'];
-
-  // Filter leads by service type based on the package's service
-  const getLeadServiceType = (lead: Lead): ServiceType | null => {
-    const pkg = lead.package || lead.packages;
-    if (!pkg) return null;
-
-    // Determine service type from package details
-    if (pkg.venue_details) return 'venue';
-    if (pkg.catering_details) return 'catering';
-    if (pkg.entertainment_details) return 'entertainment';
-    if (pkg.rental_details) return 'rentals';
-
-    return null;
-  };
-
-  // Filter leads by active service type
-  const filteredLeads = vendorServices.length > 1
-    ? leads.filter((lead) => {
-        const leadService = getLeadServiceType(lead);
-        return leadService === activeService || leadService === null;
-      })
-    : leads;
-
-  // Calculate stats
-  const totalLeads = filteredLeads.length;
-  const quotesApproved = filteredLeads.filter((l) => l.status === 'quoted').length;
-  const bookedEvents = filteredLeads.filter((l) => l.status === 'booked').length;
-  const unviewedInquiries = filteredLeads.filter((l) => l.status === 'new').length;
 
   // Handle profile menu
   const handleProfileClick = () => {
@@ -153,37 +99,8 @@ export default function VendorDashboard() {
           </>
         )}
 
-        {/* Page Title */}
-        <div className="mt-8 mb-8">
-          <h1 className="text-4xl font-medium text-black font-inter">
-            Dashboard
-          </h1>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="mb-12">
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-[178px] rounded-[15px]" />
-              ))}
-            </div>
-          ) : (
-            <DashboardStatsCards
-              totalLeads={totalLeads}
-              quotesApproved={quotesApproved}
-              bookedEvents={bookedEvents}
-              unviewedInquiries={unviewedInquiries}
-            />
-          )}
-        </div>
-
-        {/* Leads Section */}
-        <div>
-          <h2 className="text-4xl font-medium text-black font-inter mb-6">
-            Leads
-          </h2>
-
+        {/* Content */}
+        <div className="mt-8">
           {/* Service Type Tabs (only for multi-service vendors) */}
           <ServiceTypeTabs
             services={vendorServices}
@@ -191,25 +108,18 @@ export default function VendorDashboard() {
             onServiceChange={setActiveService}
           />
 
-          {/* Leads Table */}
           {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-[61px] rounded-[20px]" />
-              <Skeleton className="h-[60px]" />
-              <Skeleton className="h-[60px]" />
-              <Skeleton className="h-[60px]" />
+            <div className="space-y-6">
+              <Skeleton className="h-12 w-64" />
+              <div className="grid grid-cols-3 gap-6">
+                <Skeleton className="h-[120px] rounded-[15px]" />
+                <Skeleton className="h-[120px] rounded-[15px]" />
+                <Skeleton className="h-[120px] rounded-[15px]" />
+              </div>
+              <Skeleton className="h-[400px] rounded-lg" />
             </div>
-          ) : error ? (
-            <ErrorState
-              title="Failed to load leads"
-              message={error}
-              onRetry={fetchLeads}
-            />
           ) : (
-            <LeadsTable
-              leads={filteredLeads}
-              serviceType={activeService}
-            />
+            <AnalyticsOverview serviceType={activeService} />
           )}
         </div>
       </div>

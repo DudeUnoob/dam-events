@@ -1,7 +1,6 @@
-
 'use client';
 
-import { ChevronDown, ChevronsUpDown, X } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
 
 interface FilterBarProps {
@@ -15,70 +14,146 @@ interface FilterBarProps {
     onClearFilters: () => void;
 }
 
-export function FilterBar({ filters, onFilterChange, onClearFilters }: FilterBarProps) {
-    const activeCount = Object.values(filters).filter(Boolean).length;
+const FilterDropdown = ({
+    label,
+    value,
+    options,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <div className="flex flex-wrap justify-center gap-4 py-4 border-y border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
-            {/* Price Filter */}
-            <div className="relative group">
-                <select
-                    value={filters.price}
-                    onChange={(e) => onFilterChange('price', e.target.value)}
-                    className="appearance-none pl-5 pr-10 py-2.5 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer"
-                >
-                    <option value="">Price</option>
-                    <option value="0-2000">Under $2,000</option>
-                    <option value="2000-4000">$2,000 - $4,000</option>
-                    <option value="4000-6000">$4,000 - $6,000</option>
-                    <option value="6000+">$6,000+</option>
-                </select>
-                <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
-            </div>
+        <div className="relative">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-1 px-4 py-2 text-[16px] text-black font-normal hover:bg-slate-50 rounded-[30px] transition-colors"
+            >
+                <ChevronsUpDown className="h-[14px] w-[14px] text-[#545f71]" />
+                <span>{value ? options.find(o => o.value === value)?.label : label}</span>
+            </button>
 
-            {/* Guest Count Filter */}
-            <div className="relative group">
-                <select
-                    value={filters.guest_count}
-                    onChange={(e) => onFilterChange('guest_count', e.target.value)}
-                    className="appearance-none pl-5 pr-10 py-2.5 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer"
-                >
-                    <option value="">Guest Count</option>
-                    <option value="0-50">Up to 50</option>
-                    <option value="50-100">50 - 100</option>
-                    <option value="100-200">100 - 200</option>
-                    <option value="200+">200+</option>
-                </select>
-                <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
-            </div>
-
-            {/* Occasion Filter */}
-            <div className="relative group">
-                <select
-                    value={filters.occasion}
-                    onChange={(e) => onFilterChange('occasion', e.target.value)}
-                    className="appearance-none pl-5 pr-10 py-2.5 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer"
-                >
-                    <option value="">Occasion</option>
-                    <option value="wedding">Wedding</option>
-                    <option value="corporate">Corporate</option>
-                    <option value="party">Party</option>
-                    <option value="other">Other</option>
-                </select>
-                <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
-            </div>
-
-            {/* Clear Filters */}
-            {activeCount > 0 && (
-                <button
-                    onClick={onClearFilters}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-red-100 bg-red-50 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
-                >
-                    <X className="h-3 w-3" />
-                    Clear ({activeCount})
-                </button>
+            {isOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setIsOpen(false)}
+                    />
+                    <div className="absolute top-full left-0 mt-1 z-20 bg-white rounded-lg shadow-lg border border-slate-200 min-w-[150px]">
+                        <button
+                            onClick={() => {
+                                onChange('');
+                                setIsOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 text-slate-500"
+                        >
+                            All
+                        </button>
+                        {options.map((option) => (
+                            <button
+                                key={option.value}
+                                onClick={() => {
+                                    onChange(option.value);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${
+                                    value === option.value ? 'bg-slate-100 font-medium' : ''
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );
-}
+};
 
+const VerticalDivider = () => (
+    <div className="h-[53px] w-px bg-[#9ba5b7]" />
+);
+
+export function FilterBar({ filters, onFilterChange, onClearFilters }: FilterBarProps) {
+    const priceOptions = [
+        { value: '0-2000', label: 'Under $2,000' },
+        { value: '2000-4000', label: '$2,000 - $4,000' },
+        { value: '4000-6000', label: '$4,000 - $6,000' },
+        { value: '6000+', label: '$6,000+' },
+    ];
+
+    const availabilityOptions = [
+        { value: 'today', label: 'Today' },
+        { value: 'this-week', label: 'This Week' },
+        { value: 'this-month', label: 'This Month' },
+        { value: 'next-month', label: 'Next Month' },
+    ];
+
+    const occasionOptions = [
+        { value: 'wedding', label: 'Wedding' },
+        { value: 'corporate', label: 'Corporate' },
+        { value: 'party', label: 'Party' },
+        { value: 'other', label: 'Other' },
+    ];
+
+    const guestCountOptions = [
+        { value: '0-50', label: 'Up to 50' },
+        { value: '50-100', label: '50 - 100' },
+        { value: '100-200', label: '100 - 200' },
+        { value: '200+', label: '200+' },
+    ];
+
+    return (
+        <div className="flex justify-center items-center py-4">
+            <div className="flex items-center bg-[#f2f4f8] rounded-[30px] px-6 h-[64px]">
+                <FilterDropdown
+                    label="Price"
+                    value={filters.price}
+                    options={priceOptions}
+                    onChange={(value) => onFilterChange('price', value)}
+                />
+
+                <VerticalDivider />
+
+                <FilterDropdown
+                    label="Availability"
+                    value={filters.availability}
+                    options={availabilityOptions}
+                    onChange={(value) => onFilterChange('availability', value)}
+                />
+
+                <VerticalDivider />
+
+                <FilterDropdown
+                    label="Occasion"
+                    value={filters.occasion}
+                    options={occasionOptions}
+                    onChange={(value) => onFilterChange('occasion', value)}
+                />
+
+                <VerticalDivider />
+
+                <FilterDropdown
+                    label="Guest Count"
+                    value={filters.guest_count}
+                    options={guestCountOptions}
+                    onChange={(value) => onFilterChange('guest_count', value)}
+                />
+
+                <VerticalDivider />
+
+                <button
+                    onClick={onClearFilters}
+                    className="flex items-center gap-1 px-4 py-2 text-[16px] text-black font-normal hover:bg-slate-100 rounded-[30px] transition-colors"
+                >
+                    <ChevronsUpDown className="h-[14px] w-[14px] text-[#545f71]" />
+                    <span>All Filters</span>
+                </button>
+            </div>
+        </div>
+    );
+}

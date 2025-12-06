@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Package, Event } from '@/types';
+import { Package } from '@/types';
 import { DiscoverySearch } from '@/components/planner/discovery/DiscoverySearch';
 import { CategoryNav } from '@/components/planner/discovery/CategoryNav';
 import { FilterBar } from '@/components/planner/discovery/FilterBar';
@@ -154,8 +154,8 @@ export default function BrowsePackagesPage() {
           const params = data.data.extractedParams;
           setFilters(prev => ({
             ...prev,
-            price: params.budget_max ? `0-${params.budget_max}` : prev.price, // Simplified mapping
-            guest_count: params.capacity_min ? `${params.capacity_min}-200` : prev.guest_count, // Simplified mapping
+            price: params.budget_max ? `0-${params.budget_max}` : prev.price,
+            guest_count: params.capacity_min ? `${params.capacity_min}-200` : prev.guest_count,
           }));
         }
       }
@@ -169,7 +169,6 @@ export default function BrowsePackagesPage() {
   // Handle Filter Change
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    // useEffect will trigger fetchPackages
   };
 
   const handleClearFilters = () => {
@@ -179,26 +178,44 @@ export default function BrowsePackagesPage() {
       occasion: '',
       guest_count: '',
     });
-    if (isSmartSearchActive) {
-      // Keep smart search active but clear filters? 
-      // Or maybe reset smart search? Let's keep it simple.
-    } else {
-      // useEffect will trigger fetchPackages
-    }
   };
 
   // Handle Category Selection
   const handleCategorySelect = (category: string) => {
     setActiveCategory(category);
-    // useEffect will trigger fetchPackages
   };
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header Section */}
-      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-100 pt-4 pb-2">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <DiscoverySearch onSearch={handleSearch} />
+      {/* Search Bar Section */}
+      <div className="pt-10 pb-2">
+        <DiscoverySearch onSearch={handleSearch} />
+      </div>
+
+      {/* Category Navigation with decorative background */}
+      <div className="relative">
+        {/* Decorative gradient blur circles - matching Figma */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Purple circle top-right */}
+          <div className="absolute w-[214px] h-[214px] rounded-full bg-purple-200/30 blur-xl top-[-20px] right-[300px]" />
+          {/* Blue circle */}
+          <div className="absolute w-[202px] h-[202px] rounded-full bg-blue-200/30 blur-xl top-[-30px] right-[200px]" />
+          {/* Yellow circle */}
+          <div className="absolute w-[200px] h-[200px] rounded-full bg-yellow-200/30 blur-xl top-[20px] left-[300px]" />
+          {/* Pink circle */}
+          <div className="absolute w-[214px] h-[214px] rounded-full bg-pink-200/30 blur-xl top-[-30px] left-[380px]" />
+          {/* Green circle */}
+          <div className="absolute w-[199px] h-[199px] rounded-full bg-green-200/30 blur-xl top-[0px] left-[280px]" />
+          {/* Central radial gradient */}
+          <div
+            className="absolute w-[1169px] h-[276px] left-1/2 -translate-x-1/2 top-[40px] rounded-[150px] blur-sm"
+            style={{
+              background: 'radial-gradient(50% 50% at 50% 50%, rgba(221,233,243,0.5) 0%, rgba(226,231,247,0.3) 58%, rgba(221,233,243,0.1) 93%, rgba(221,233,243,0.05) 100%)'
+            }}
+          />
+        </div>
+
+        <div className="relative z-10">
           <CategoryNav
             activeCategory={activeCategory}
             onSelectCategory={handleCategorySelect}
@@ -207,22 +224,18 @@ export default function BrowsePackagesPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="border-b border-slate-100">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FilterBar
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            onClearFilters={handleClearFilters}
-          />
-        </div>
-      </div>
+      <FilterBar
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
 
       {/* Main Content */}
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <div className="pt-4 pb-8 space-y-4">
 
         {/* Search Metadata / Suggestions */}
         {isSmartSearchActive && searchMetadata?.correctedQuery && (
-          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+          <div className="mx-[93px] bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
             Showing results for <strong>{searchMetadata.correctedQuery}</strong>
           </div>
         )}
@@ -232,7 +245,7 @@ export default function BrowsePackagesPage() {
           {loading ? (
             // Skeleton loading state
             [...Array(4)].map((_, i) => (
-              <div key={i} className="w-[300px] h-72 bg-slate-100 rounded-xl animate-pulse flex-shrink-0" />
+              <DiscoveryCard key={i} />
             ))
           ) : packages.length > 0 ? (
             packages.map((pkg) => (

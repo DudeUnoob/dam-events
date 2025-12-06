@@ -46,7 +46,11 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', 'sans-serif'],
+        urbanist: ['var(--font-urbanist)', 'sans-serif'],
+        poppins: ['var(--font-poppins)', 'Poppins', 'sans-serif'],
+        manrope: ['var(--font-manrope)', 'Manrope', 'sans-serif'],
+        inter: ['var(--font-inter)', 'Inter', 'sans-serif'],
       },
     },
   },

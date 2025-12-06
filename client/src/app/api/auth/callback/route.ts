@@ -10,13 +10,14 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
 
+  // Create a single Supabase client instance to use throughout
+  const supabase = createClient();
+
   if (code) {
-    const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // Check if user has completed profile setup
-  const supabase = createClient();
+  // Check if user has completed profile setup (using the same client)
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {

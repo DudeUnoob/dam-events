@@ -1,11 +1,43 @@
 'use client';
 
 import { OnboardingStep4EntertainmentData, ENTERTAINMENT_TYPES } from '@/types';
-import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
 interface Step4EntertainmentProps {
   data: OnboardingStep4EntertainmentData;
   onChange: (data: Partial<OnboardingStep4EntertainmentData>) => void;
+}
+
+// Figma-styled checkbox component
+function FigmaCheckbox({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer group">
+      <div
+        onClick={onChange}
+        className={`
+          w-[31px] h-[31px] rounded-[3px] flex items-center justify-center
+          border-2 border-[#545f71] transition-all
+          ${checked ? 'bg-[#545f71]' : 'bg-[#f2f4f8]'}
+        `}
+      >
+        {checked && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
+      </div>
+      <span
+        className="text-lg md:text-xl lg:text-[22px] text-black"
+        style={{ fontFamily: "'Manrope', sans-serif" }}
+      >
+        {label}
+      </span>
+    </label>
+  );
 }
 
 export function Step4Entertainment({ data, onChange }: Step4EntertainmentProps) {
@@ -21,59 +53,60 @@ export function Step4Entertainment({ data, onChange }: Step4EntertainmentProps) 
   };
 
   return (
-    <div className="space-y-8">
-      {/* Title */}
-      <div className="text-center">
-        <h1 className="text-4xl font-semibold text-slate-900 mb-4">
-          What type of entertainment do you offer?
-        </h1>
-        <p className="text-slate-600">
-          Select all entertainment services you provide
-        </p>
-      </div>
+    <div className="relative min-h-[600px]">
+      {/* Decorative gradient blurs */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[250px] rounded-[150px] blur-sm opacity-40 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(221,233,243,0.5) 0%, rgba(221,233,243,0.3) 50%, rgba(221,233,243,0.05) 100%)',
+        }}
+      />
+      <div
+        className="absolute top-[200px] left-1/2 -translate-x-1/2 w-[954px] h-[423px] rounded-[50px] blur-sm opacity-30 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at 20% 30%, rgba(210,211,239,0.35) 0%, rgba(210,211,239,0.2) 50%, rgba(210,211,239,0.3) 100%)',
+        }}
+      />
 
-      {/* Entertainment Type Grid */}
-      <div className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {ENTERTAINMENT_TYPES.map((entertainmentType) => {
-            const isSelected = (data.entertainmentTypes || []).includes(entertainmentType);
+      <div className="relative z-10 space-y-8 pt-8">
+        {/* Title */}
+        <div className="text-center">
+          <h1
+            className="text-3xl md:text-4xl lg:text-[48px] font-semibold text-black mb-4"
+            style={{ fontFamily: "'Poppins', sans-serif" }}
+          >
+            What type of entertainment do you offer?
+          </h1>
+        </div>
 
-            return (
-              <label
-                key={entertainmentType}
-                className={cn(
-                  'flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
-                  isSelected
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                )}
-              >
-                <input
-                  type="checkbox"
+        {/* Entertainment Type Grid - 3 columns */}
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-5">
+            {ENTERTAINMENT_TYPES.map((entertainmentType) => {
+              const isSelected = (data.entertainmentTypes || []).includes(entertainmentType);
+
+              return (
+                <FigmaCheckbox
+                  key={entertainmentType}
                   checked={isSelected}
                   onChange={() => toggleEntertainmentType(entertainmentType)}
-                  className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  label={entertainmentType}
                 />
-                <span
-                  className={cn(
-                    'text-sm font-medium',
-                    isSelected ? 'text-primary-700' : 'text-slate-700'
-                  )}
-                >
-                  {entertainmentType}
-                </span>
-              </label>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Selected count */}
-      {(data.entertainmentTypes?.length ?? 0) > 0 && (
-        <p className="text-center text-sm text-slate-600">
-          {data.entertainmentTypes?.length} entertainment type{data.entertainmentTypes?.length !== 1 ? 's' : ''} selected
-        </p>
-      )}
+        {/* Selected count */}
+        {(data.entertainmentTypes?.length ?? 0) > 0 && (
+          <p
+            className="text-center text-sm text-slate-600"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            {data.entertainmentTypes?.length} entertainment type{data.entertainmentTypes?.length !== 1 ? 's' : ''} selected
+          </p>
+        )}
+      </div>
     </div>
   );
 }

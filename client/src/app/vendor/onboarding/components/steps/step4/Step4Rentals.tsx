@@ -1,11 +1,43 @@
 'use client';
 
 import { OnboardingStep4RentalsData, RENTAL_TYPES, DELIVERY_OPTIONS } from '@/types';
-import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
 interface Step4RentalsProps {
   data: OnboardingStep4RentalsData;
   onChange: (data: Partial<OnboardingStep4RentalsData>) => void;
+}
+
+// Figma-styled checkbox component
+function FigmaCheckbox({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer group">
+      <div
+        onClick={onChange}
+        className={`
+          w-[31px] h-[31px] rounded-[3px] flex items-center justify-center
+          border-2 border-[#545f71] transition-all
+          ${checked ? 'bg-[#545f71]' : 'bg-[#f2f4f8]'}
+        `}
+      >
+        {checked && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
+      </div>
+      <span
+        className="text-lg md:text-xl lg:text-[22px] text-black"
+        style={{ fontFamily: "'Manrope', sans-serif" }}
+      >
+        {label}
+      </span>
+    </label>
+  );
 }
 
 export function Step4Rentals({ data, onChange }: Step4RentalsProps) {
@@ -32,99 +64,85 @@ export function Step4Rentals({ data, onChange }: Step4RentalsProps) {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Title */}
-      <div className="text-center">
-        <h1 className="text-4xl font-semibold text-slate-900 mb-4">
-          What type of rentals do you offer?
-        </h1>
-        <p className="text-slate-600">
-          Select all rental items you provide
-        </p>
-      </div>
+    <div className="relative min-h-[600px]">
+      {/* Decorative gradient blurs */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[250px] rounded-[150px] blur-sm opacity-40 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(221,233,243,0.5) 0%, rgba(221,233,243,0.3) 50%, rgba(221,233,243,0.05) 100%)',
+        }}
+      />
+      <div
+        className="absolute top-[200px] left-1/2 -translate-x-1/2 w-[954px] h-[473px] rounded-[50px] blur-sm opacity-30 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at 20% 30%, rgba(210,211,239,0.35) 0%, rgba(210,211,239,0.2) 50%, rgba(210,211,239,0.3) 100%)',
+        }}
+      />
 
-      {/* Rental Type Grid */}
-      <div className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {RENTAL_TYPES.map((rentalType) => {
-            const isSelected = (data.rentalTypes || []).includes(rentalType);
+      <div className="relative z-10 space-y-8 pt-8">
+        {/* Title */}
+        <div className="text-center">
+          <h1
+            className="text-3xl md:text-4xl lg:text-[48px] font-semibold text-black mb-4"
+            style={{ fontFamily: "'Poppins', sans-serif" }}
+          >
+            What type of rentals do you offer?
+          </h1>
+        </div>
 
-            return (
-              <label
-                key={rentalType}
-                className={cn(
-                  'flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
-                  isSelected
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                )}
-              >
-                <input
-                  type="checkbox"
+        {/* Rental Type Grid - 3 columns */}
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-5">
+            {RENTAL_TYPES.map((rentalType) => {
+              const isSelected = (data.rentalTypes || []).includes(rentalType);
+
+              return (
+                <FigmaCheckbox
+                  key={rentalType}
                   checked={isSelected}
                   onChange={() => toggleRentalType(rentalType)}
-                  className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  label={rentalType}
                 />
-                <span
-                  className={cn(
-                    'text-sm font-medium',
-                    isSelected ? 'text-primary-700' : 'text-slate-700'
-                  )}
-                >
-                  {rentalType}
-                </span>
-              </label>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Delivery Options Section */}
-      <div className="max-w-4xl mx-auto pt-6 border-t border-slate-200">
-        <h2 className="text-xl font-semibold text-slate-900 mb-4 text-center">
-          Do you offer setup or delivery services?
-        </h2>
+        {/* Delivery Options Section */}
+        <div className="max-w-4xl mx-auto px-4 pt-8">
+          <h2
+            className="text-xl md:text-2xl lg:text-[28px] font-medium text-black mb-6 text-center"
+            style={{ fontFamily: "'Urbanist', sans-serif" }}
+          >
+            Do you offer setup or delivery services?
+          </h2>
 
-        <div className="flex flex-wrap justify-center gap-4">
-          {DELIVERY_OPTIONS.map((option) => {
-            const isSelected = (data.deliveryOptions || []).includes(option);
+          <div className="flex flex-wrap justify-center gap-x-16 gap-y-5">
+            {DELIVERY_OPTIONS.map((option) => {
+              const isSelected = (data.deliveryOptions || []).includes(option);
 
-            return (
-              <label
-                key={option}
-                className={cn(
-                  'flex items-center gap-3 px-6 py-3 rounded-lg border-2 cursor-pointer transition-all',
-                  isSelected
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                )}
-              >
-                <input
-                  type="checkbox"
+              return (
+                <FigmaCheckbox
+                  key={option}
                   checked={isSelected}
                   onChange={() => toggleDeliveryOption(option)}
-                  className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  label={option}
                 />
-                <span
-                  className={cn(
-                    'text-sm font-medium',
-                    isSelected ? 'text-primary-700' : 'text-slate-700'
-                  )}
-                >
-                  {option}
-                </span>
-              </label>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Selected count */}
-      {(data.rentalTypes?.length ?? 0) > 0 && (
-        <p className="text-center text-sm text-slate-600">
-          {data.rentalTypes?.length} rental type{data.rentalTypes?.length !== 1 ? 's' : ''} selected
-        </p>
-      )}
+        {/* Selected count */}
+        {(data.rentalTypes?.length ?? 0) > 0 && (
+          <p
+            className="text-center text-sm text-slate-600"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            {data.rentalTypes?.length} rental type{data.rentalTypes?.length !== 1 ? 's' : ''} selected
+          </p>
+        )}
+      </div>
     </div>
   );
 }

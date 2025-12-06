@@ -1,245 +1,291 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Calendar,
-  Search,
-  MessageSquare,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  Users,
-  Sparkles,
-} from 'lucide-react';
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Package } from '@/types';
+import { DiscoverySearch } from '@/components/planner/discovery/DiscoverySearch';
+import { CategoryNav } from '@/components/planner/discovery/CategoryNav';
+import { FilterBar } from '@/components/planner/discovery/FilterBar';
+import { HorizontalSection } from '@/components/planner/discovery/HorizontalSection';
+import { DiscoveryCard } from '@/components/planner/discovery/DiscoveryCard';
+import { SearchMetadata } from '@/components/planner/EnhancedSearchResults';
 
 export default function HomePage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const eventId = searchParams.get('eventId');
+
+  // Data State
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [featuredFoods, setFeaturedFoods] = useState<Package[]>([]);
+  const [topVenues, setTopVenues] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Search & Filter State
+  const [activeCategory, setActiveCategory] = useState('packages');
+  const [filters, setFilters] = useState({
+    price: '',
+    availability: '',
+    occasion: '',
+    guest_count: '',
+  });
+
+  // Smart Search State
+  const [searchMetadata, setSearchMetadata] = useState<SearchMetadata | null>(null);
+  const [isSmartSearchActive, setIsSmartSearchActive] = useState(false);
+
+  // Helper to build query string from filters
+  const buildQueryString = useCallback((category: string, currentFilters: typeof filters) => {
+    const params = new URLSearchParams();
+    if (eventId) params.append('eventId', eventId);
+
+    // DEVELOPMENT: Include all packages regardless of status
+    params.append('includeAll', 'true');
+
+    // Category mapping to service_type
+    if (category === 'food') params.append('service_type', 'catering');
+    if (category === 'venue') params.append('service_type', 'venue');
+    if (category === 'entertainment') params.append('service_type', 'entertainment');
+    if (category === 'rentals') params.append('service_type', 'rentals');
+
+    // Price Filter
+    if (currentFilters.price) {
+      if (currentFilters.price === '6000+') {
+        params.append('min_price', '6000');
+      } else {
+        const [min, max] = currentFilters.price.split('-');
+        if (min) params.append('min_price', min);
+        if (max) params.append('max_price', max);
+      }
+    }
+
+    // Guest Count Filter
+    if (currentFilters.guest_count) {
+      if (currentFilters.guest_count === '200+') {
+        params.append('min_capacity', '200');
+      } else {
+        const [min] = currentFilters.guest_count.split('-');
+        if (min) params.append('min_capacity', min);
+      }
+    }
+
+    return params.toString();
+  }, [eventId]);
+
+  // Fetch Data
+  const fetchPackages = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // 1. Fetch Main List (Recommended/Filtered)
+      const queryStr = buildQueryString(activeCategory, filters);
+      const packagesRes = await fetch(`/api/packages?${queryStr}`);
+      const packagesData = await packagesRes.json();
+
+      if (packagesRes.ok && packagesData.data) {
+        setPackages(packagesData.data);
+      }
+
+      // 2. Fetch Specific Sections (Only on initial load or if not searching)
+      if (!isSmartSearchActive) {
+        // Featured Foods
+        const foodsRes = await fetch('/api/packages?service_type=catering&limit=5&includeAll=true');
+        const foodsData = await foodsRes.json();
+        if (foodsRes.ok && foodsData.data) setFeaturedFoods(foodsData.data);
+
+        // Top Venues
+        const venuesRes = await fetch('/api/packages?service_type=venue&limit=5&includeAll=true');
+        const venuesData = await venuesRes.json();
+        if (venuesRes.ok && venuesData.data) setTopVenues(venuesData.data);
+      }
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCategory, filters, isSmartSearchActive, buildQueryString]);
+
+  // Initial Load & Filter Changes
+  useEffect(() => {
+    if (!isSmartSearchActive) {
+      fetchPackages();
+    }
+  }, [fetchPackages, isSmartSearchActive]);
+
+  // Handle Smart Search
+  const handleSearch = async (query: string, location: string, eventType: string) => {
+    if (!query && !location) {
+      // Reset if empty
+      setIsSmartSearchActive(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setIsSmartSearchActive(true);
+
+      // Construct natural language query if multiple fields used
+      let fullQuery = query;
+      if (location) fullQuery += ` in ${location}`;
+      if (eventType && eventType !== 'Event') fullQuery += ` for ${eventType}`;
+
+      const response = await fetch('/api/search/smart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: fullQuery }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.data) {
+        setPackages(data.data.results || []);
+        setSearchMetadata({
+          correctedQuery: data.data.correctedQuery,
+          expandedQuery: data.data.expandedQuery,
+          didYouMean: data.data.didYouMean,
+          relatedSearches: data.data.relatedSearches,
+          searchQuality: data.data.searchQuality,
+          totalMatches: data.data.totalMatches,
+        });
+
+        // Auto-populate filters from extracted params
+        if (data.data.extractedParams) {
+          const params = data.data.extractedParams;
+          setFilters(prev => ({
+            ...prev,
+            price: params.budget_max ? `0-${params.budget_max}` : prev.price,
+            guest_count: params.capacity_min ? `${params.capacity_min}-200` : prev.guest_count,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Smart search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Filter Change
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      price: '',
+      availability: '',
+      occasion: '',
+      guest_count: '',
+    });
+  };
+
+  // Handle Category Selection
+  const handleCategorySelect = (category: string) => {
+    setActiveCategory(category);
+  };
+
   return (
-    <div className="flex flex-col">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-50 via-white to-accent-50 px-4 py-20 sm:px-6 lg:px-8 lg:py-32">
-        <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
+    <div className="min-h-screen bg-white">
+      {/* Search Bar Section */}
+      <div className="pt-10 pb-2">
+        <DiscoverySearch onSearch={handleSearch} />
+      </div>
 
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-8">
-            {/* Left Column - Content */}
-            <div className="flex flex-col justify-center">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary-100 px-4 py-1.5 text-sm font-medium text-primary-700 w-fit">
-                <Sparkles className="h-4 w-4" />
-                Event Planning Made Simple
-              </div>
+      {/* Category Navigation with decorative background */}
+      <div className="relative">
+        {/* Decorative gradient blur circles - matching Figma */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Purple circle top-right */}
+          <div className="absolute w-[214px] h-[214px] rounded-full bg-purple-200/30 blur-xl top-[-20px] right-[300px]" />
+          {/* Blue circle */}
+          <div className="absolute w-[202px] h-[202px] rounded-full bg-blue-200/30 blur-xl top-[-30px] right-[200px]" />
+          {/* Yellow circle */}
+          <div className="absolute w-[200px] h-[200px] rounded-full bg-yellow-200/30 blur-xl top-[20px] left-[300px]" />
+          {/* Pink circle */}
+          <div className="absolute w-[214px] h-[214px] rounded-full bg-pink-200/30 blur-xl top-[-30px] left-[380px]" />
+          {/* Green circle */}
+          <div className="absolute w-[199px] h-[199px] rounded-full bg-green-200/30 blur-xl top-[0px] left-[280px]" />
+          {/* Central radial gradient */}
+          <div
+            className="absolute w-[1169px] h-[276px] left-1/2 -translate-x-1/2 top-[40px] rounded-[150px] blur-sm"
+            style={{
+              background: 'radial-gradient(50% 50% at 50% 50%, rgba(221,233,243,0.5) 0%, rgba(226,231,247,0.3) 58%, rgba(221,233,243,0.1) 93%, rgba(221,233,243,0.05) 100%)'
+            }}
+          />
+        </div>
 
-              <h1 className="mt-6 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Find Your Perfect Event Package in{' '}
-                <span className="text-primary-600">Minutes</span>
-              </h1>
+        <div className="relative z-10">
+          <CategoryNav
+            activeCategory={activeCategory}
+            onSelectCategory={handleCategorySelect}
+          />
+        </div>
+      </div>
 
-              <p className="mt-6 text-lg leading-8 text-slate-600">
-                Stop wasting 15+ hours coordinating vendors. Browse complete event packages from
-                pre-vetted vendors—venue, catering, and entertainment all in one place.
-              </p>
+      {/* Filter Bar */}
+      <FilterBar
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+      />
 
-              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                <Button size="lg" asChild>
-                  <Link href="/signup?role=planner">
-                    <Calendar className="mr-2 h-5 w-5" />
-                    Plan Your Event
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link href="/signup?role=vendor">List Your Venue</Link>
-                </Button>
-              </div>
+      {/* Main Content */}
+      <div className="pt-4 pb-8 space-y-4">
 
-              {/* Stats */}
-              <div className="mt-12 grid grid-cols-3 gap-4 border-t border-slate-200 pt-8">
-                <div>
-                  <div className="text-3xl font-bold text-slate-900">20+</div>
-                  <div className="mt-1 text-sm text-slate-600">Verified Vendors</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-slate-900">&lt;24h</div>
-                  <div className="mt-1 text-sm text-slate-600">Response Time</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-slate-900">25%</div>
-                  <div className="mt-1 text-sm text-slate-600">Booking Rate</div>
-                </div>
-              </div>
+        {/* Search Metadata / Suggestions */}
+        {isSmartSearchActive && searchMetadata?.correctedQuery && (
+          <div className="mx-[93px] bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+            Showing results for <strong>{searchMetadata.correctedQuery}</strong>
+          </div>
+        )}
+
+        {/* Recommended Packages Section */}
+        <HorizontalSection title={isSmartSearchActive ? "Search Results" : "Recommended Packages"}>
+          {loading ? (
+            // Skeleton loading state
+            [...Array(4)].map((_, i) => (
+              <DiscoveryCard key={i} />
+            ))
+          ) : packages.length > 0 ? (
+            packages.map((pkg) => (
+              <DiscoveryCard
+                key={pkg.id}
+                packageData={pkg}
+              />
+            ))
+          ) : (
+            <div className="w-full text-center py-12 text-slate-500">
+              No packages found. Try adjusting your search.
             </div>
+          )}
+        </HorizontalSection>
 
-            {/* Right Column - Visual */}
-            <div className="relative lg:flex lg:items-center">
-              <div className="relative mx-auto w-full max-w-lg">
-                <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-primary-400 to-accent-400 opacity-20 blur-3xl" />
-                <Card variant="elevated" className="relative">
-                  <CardContent className="p-8">
-                    <div className="space-y-6">
-                      <div className="flex items-start gap-4">
-                        <div className="rounded-lg bg-primary-100 p-3">
-                          <Search className="h-6 w-6 text-primary-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900">1. Browse Packages</h3>
-                          <p className="mt-1 text-sm text-slate-600">
-                            Search complete event packages matching your budget and needs
-                          </p>
-                        </div>
-                      </div>
+        {/* Featured Foods Section */}
+        {!isSmartSearchActive && featuredFoods.length > 0 && (
+          <HorizontalSection title="Featured Foods">
+            {featuredFoods.map((pkg) => (
+              <DiscoveryCard
+                key={`food-${pkg.id}`}
+                packageData={pkg}
+              />
+            ))}
+          </HorizontalSection>
+        )}
 
-                      <div className="flex items-start gap-4">
-                        <div className="rounded-lg bg-secondary-100 p-3">
-                          <MessageSquare className="h-6 w-6 text-secondary-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900">2. Request Quotes</h3>
-                          <p className="mt-1 text-sm text-slate-600">
-                            Get proposals from multiple vendors within 24-48 hours
-                          </p>
-                        </div>
-                      </div>
+        {/* Venues Section */}
+        {!isSmartSearchActive && topVenues.length > 0 && (
+          <HorizontalSection title="Top Venues">
+            {topVenues.map((pkg) => (
+              <DiscoveryCard
+                key={`venue-${pkg.id}`}
+                packageData={pkg}
+              />
+            ))}
+          </HorizontalSection>
+        )}
 
-                      <div className="flex items-start gap-4">
-                        <div className="rounded-lg bg-accent-100 p-3">
-                          <CheckCircle className="h-6 w-6 text-accent-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900">3. Book Your Event</h3>
-                          <p className="mt-1 text-sm text-slate-600">
-                            Compare offers and book your perfect event package
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Why Choose DAM Events?
-            </h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Everything you need to plan successful events, all in one platform
-            </p>
-          </div>
-
-          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {/* Feature 1 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-primary-100 p-3 w-fit">
-                  <Clock className="h-6 w-6 text-primary-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Save 15+ Hours</h3>
-                <p className="mt-2 text-slate-600">
-                  Reduce event planning time from weeks to hours. Find everything you need in one
-                  place.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 2 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-secondary-100 p-3 w-fit">
-                  <CheckCircle className="h-6 w-6 text-secondary-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Pre-Vetted Vendors</h3>
-                <p className="mt-2 text-slate-600">
-                  Work with verified, quality vendors who have been carefully reviewed by our team.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 3 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-accent-100 p-3 w-fit">
-                  <DollarSign className="h-6 w-6 text-accent-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Transparent Pricing</h3>
-                <p className="mt-2 text-slate-600">
-                  See pricing ranges upfront. Compare multiple quotes and find the best value.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 4 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-primary-100 p-3 w-fit">
-                  <MessageSquare className="h-6 w-6 text-primary-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Unified Messaging</h3>
-                <p className="mt-2 text-slate-600">
-                  Communicate with all vendors in one place. No more scattered text messages and
-                  emails.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 5 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-secondary-100 p-3 w-fit">
-                  <Users className="h-6 w-6 text-secondary-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Complete Packages</h3>
-                <p className="mt-2 text-slate-600">
-                  Get venue, catering, and entertainment from one vendor. Simplified coordination.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 6 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="rounded-lg bg-accent-100 p-3 w-fit">
-                  <Calendar className="h-6 w-6 text-accent-600" />
-                </div>
-                <h3 className="mt-4 text-xl font-semibold text-slate-900">Fast Response</h3>
-                <p className="mt-2 text-slate-600">
-                  Vendors respond within 24 hours. Get quotes quickly and move forward faster.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-br from-primary-600 to-primary-700 px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Ready to Plan Your Next Event?
-          </h2>
-          <p className="mt-4 text-lg text-primary-100">
-            Join hundreds of event planners who have simplified their planning process
-          </p>
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center">
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/signup?role=planner">
-                <Calendar className="mr-2 h-5 w-5" />
-                Start Planning
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              className="bg-white text-primary-600 hover:bg-primary-50"
-              asChild
-            >
-              <Link href="/planner/browse">Browse Packages</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }

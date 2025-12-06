@@ -20,18 +20,23 @@ export async function middleware(req: NextRequest) {
   const publicRoutes = [
     '/',
     '/login',
-    '/signup',
     '/auth/callback',
     '/api/auth/callback',
     '/api/packages', // Public package browsing
     '/api/search/semantic', // Public semantic search
     '/api/search/smart', // Public smart search
     '/api/search/hybrid', // Public hybrid search
+    '/planner/browse', // Public browse page
   ];
 
-  const isPublicRoute = publicRoutes.some(route =>
-    pathname === route || pathname.startsWith('/api/auth/')
-  );
+  // Routes that should match as prefixes (all sub-paths are public)
+  const publicPrefixes = [
+    '/signup', // Includes /signup, /signup/complete, etc.
+    '/api/auth/', // All auth API routes
+  ];
+
+  const isPublicRoute = publicRoutes.includes(pathname) ||
+    publicPrefixes.some(prefix => pathname.startsWith(prefix));
 
   // If not authenticated and trying to access protected route
   if (!session && !isPublicRoute) {
@@ -49,8 +54,8 @@ export async function middleware(req: NextRequest) {
       .eq('id', session.user.id)
       .single();
 
-    // Planner-only routes
-    if (pathname.startsWith('/planner') && user?.role !== 'planner') {
+    // Planner-only routes (except /planner/browse which is public)
+    if (pathname.startsWith('/planner') && pathname !== '/planner/browse' && user?.role !== 'planner') {
       return NextResponse.redirect(new URL('/', req.url));
     }
 
