@@ -210,7 +210,12 @@ export default function EventDetailPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Quotes Requested ({leads.length})</CardTitle>
                   {leads.length === 0 && (
-                    <Button size="sm" asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 px-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                      asChild
+                    >
                       <Link href={`/planner/browse?eventId=${event.id}`}>
                         Request Quotes
                       </Link>
@@ -247,7 +252,12 @@ export default function EventDetailPage() {
                   <div className="text-center py-8">
                     <Package className="mx-auto h-12 w-12 text-slate-400 mb-3" />
                     <p className="text-slate-600 mb-4">No quotes requested yet</p>
-                    <Button size="sm" asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 px-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                      asChild
+                    >
                       <Link href={`/planner/browse?eventId=${event.id}`}>
                         Browse Packages
                       </Link>
@@ -265,7 +275,10 @@ export default function EventDetailPage() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button className="w-full" asChild>
+                <Button
+                  className="w-full h-9 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap flex items-center justify-center gap-2"
+                  asChild
+                >
                   <Link href={`/planner/browse?eventId=${event.id}`}>
                     <Package className="mr-2 h-4 w-4" />
                     Find Matching Packages

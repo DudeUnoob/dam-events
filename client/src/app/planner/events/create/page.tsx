@@ -33,6 +33,7 @@ export default function CreateEventPage() {
   const returnTo = searchParams.get('returnTo');
 
   const [formData, setFormData] = useState({
+    eventName: '',
     eventDate: '',
     budget: '',
     guestCount: '',
@@ -52,6 +53,11 @@ export default function CreateEventPage() {
     setError(null);
 
     // Validation
+    if (!formData.eventName.trim()) {
+      setError('Event name is required');
+      return;
+    }
+
     if (!formData.eventDate) {
       setError('Event date is required');
       return;
@@ -88,7 +94,8 @@ export default function CreateEventPage() {
           guestCount: guestCount,
           locationAddress: formData.locationAddress.trim(),
           eventType: formData.eventType,
-          description: formData.description.trim() || undefined,
+          description:
+            formData.description.trim() || formData.eventName.trim() || undefined,
         }),
       });
 
@@ -118,156 +125,145 @@ export default function CreateEventPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Back Button */}
-        <Button variant="ghost" size="sm" className="mb-6" asChild>
-          <Link href="/planner/dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 flex justify-center">
+        <div className="w-full max-w-2xl">
+          {/* Back Button */}
+          <Button variant="ghost" size="sm" className="mb-4" asChild>
+            <Link href="/planner/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
 
-        <Card variant="elevated">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary-100 p-3">
-                <Calendar className="h-6 w-6 text-primary-600" />
-              </div>
-              <div>
-                <CardTitle>Create New Event</CardTitle>
-                <CardDescription>Tell us about your event to find matching packages</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+          <Card variant="elevated" className="rounded-[25px] border border-[#232834] bg-[#f2f4f8]">
+            <CardHeader className="text-center pt-6 pb-2 bg-[#f2f4f8] rounded-t-[25px]">
+              <CardTitle className="text-2xl font-semibold text-black">
+                Create New Event
+              </CardTitle>
+              <CardDescription className="mt-2 text-[12px] text-black">
+                Create an event to attach vendor orders and quotes to. Fill in the details below.
+              </CardDescription>
+            </CardHeader>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Error Message */}
-              {error && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-800">{error}</p>
-                </div>
-              )}
+            <CardContent className="bg-[#f2f4f8] rounded-b-[25px] pb-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Error Message */}
+                {error && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                )}
 
-              {/* Event Type */}
-              <Select
-                label="Event Type"
-                name="eventType"
-                value={formData.eventType}
-                onChange={handleChange}
-                required
-              >
-                {EVENT_TYPES.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </Select>
-
-              {/* Event Date */}
-              <Input
-                type="date"
-                label="Event Date"
-                name="eventDate"
-                value={formData.eventDate}
-                onChange={handleChange}
-                required
-                min={new Date().toISOString().split('T')[0]}
-              />
-
-              {/* Guest Count */}
-              <Input
-                type="number"
-                label="Expected Guest Count"
-                name="guestCount"
-                value={formData.guestCount}
-                onChange={handleChange}
-                placeholder="e.g., 150"
-                min="1"
-                required
-              />
-
-              {/* Budget */}
-              <div>
-                <Input
-                  type="number"
-                  label="Budget"
-                  name="budget"
-                  value={formData.budget}
-                  onChange={handleChange}
-                  placeholder="e.g., 5000"
-                  min="0"
-                  step="100"
-                  required
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Enter your total budget in USD
-                </p>
-              </div>
-
-              {/* Location */}
-              <div>
+                {/* Event Name */}
                 <Input
                   type="text"
-                  label="Event Location"
+                  label="Event Name *"
+                  name="eventName"
+                  value={formData.eventName}
+                  onChange={handleChange}
+                  placeholder="e.g., Corporate Annual Gala"
+                  required
+                />
+
+                {/* Date + Guests */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    type="date"
+                    label="Event Date *"
+                    name="eventDate"
+                    value={formData.eventDate}
+                    onChange={handleChange}
+                    required
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <Input
+                    type="number"
+                    label="Number of Guests *"
+                    name="guestCount"
+                    value={formData.guestCount}
+                    onChange={handleChange}
+                    placeholder="e.g., 150"
+                    min="1"
+                    required
+                  />
+                </div>
+
+                {/* Budget + Occasion */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Input
+                      type="number"
+                      label="Budget *"
+                      name="budget"
+                      value={formData.budget}
+                      onChange={handleChange}
+                      placeholder="e.g., 25000"
+                      min="0"
+                      step="100"
+                      required
+                    />
+                  </div>
+
+                  <Select
+                    label="Occasion *"
+                    name="eventType"
+                    value={formData.eventType}
+                    onChange={handleChange}
+                    required
+                  >
+                    {EVENT_TYPES.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                {/* Location */}
+                <Input
+                  type="text"
+                  label="Event Location *"
                   name="locationAddress"
                   value={formData.locationAddress}
                   onChange={handleChange}
-                  placeholder="Enter address or city"
+                  placeholder="e.g., Downtown Austin, Grand Ballroom"
                   required
                 />
-                <p className="mt-1 text-xs text-slate-500">
-                  We&apos;ll use this to find nearby venues
-                </p>
-              </div>
 
-              {/* Description */}
-              <Textarea
-                label="Event Description (Optional)"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Tell vendors more about your event..."
-                rows={4}
-                maxLength={500}
-              />
+                {/* Additional Details */}
+                <Textarea
+                  label="Additional Details"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Add any special requirements, themes, dietary restrictions, or other important details..."
+                  rows={3}
+                  maxLength={500}
+                />
 
-              {/* Form Actions */}
-              <div className="flex gap-4 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => router.push('/planner/dashboard')}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create & Find Packages'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Help Text */}
-        <div className="mt-6 rounded-lg bg-blue-50 p-4">
-          <h3 className="font-medium text-blue-900">What happens next?</h3>
-          <ul className="mt-2 space-y-1 text-sm text-blue-800">
-            <li>• We&apos;ll show you packages that match your requirements</li>
-            <li>• You can request quotes from multiple vendors at once</li>
-            <li>• Vendors typically respond within 24-48 hours</li>
-            <li>• All communication happens in your dashboard</li>
-          </ul>
+                {/* Form Actions */}
+                <div className="flex justify-end pt-4">
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="sm"
+                    className="px-6 bg-[#232834] hover:bg-[#111827] text-white rounded-full text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Event'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

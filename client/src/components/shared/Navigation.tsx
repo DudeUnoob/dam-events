@@ -6,18 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Menu, X, LayoutDashboard, Package, MessageSquare, LogOut, User, Settings, Home, Receipt, UserCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-
-// Scout Logo Icon
-const ScoutIcon = () => (
-  <svg width="41" height="45" viewBox="0 0 41 45" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="20" width="14.8" height="16.683" rx="2" fill="#232834" transform="rotate(-90 0 20)"/>
-    <rect x="26.2" y="45" width="14.8" height="16.683" rx="2" fill="#232834" transform="rotate(-90 26.2 45)"/>
-    <circle cx="9" cy="9" r="4" fill="#232834"/>
-    <circle cx="20.5" cy="21" r="4" fill="#232834"/>
-    <circle cx="32" cy="36" r="4" fill="#232834"/>
-    <circle cx="20.5" cy="33" r="4" fill="#232834"/>
-  </svg>
-);
+import { LogoIcon } from '@/components/icons/CategoryIcons';
 
 export function Navigation() {
   const pathname = usePathname();
@@ -65,10 +54,8 @@ export function Navigation() {
         <div className="flex h-[66px] items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <ScoutIcon />
-            <span className="text-[26px] font-medium text-black font-urbanist">
-              scout
-            </span>
+            <LogoIcon className="h-[45px] w-auto" />
+            <span className="sr-only">Scout</span>
           </Link>
 
           {/* Desktop Navigation */}

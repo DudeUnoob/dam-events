@@ -6,7 +6,7 @@ import { Package } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { ArrowLeft, MessageSquare, Calendar, Users, MapPin, Plus, Check, X } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Calendar, Users, MapPin, Plus, Check, X, Send as SendIcon } from 'lucide-react';
 
 interface QuoteViewProps {
     cart: CartItem[];
@@ -21,9 +21,9 @@ export default function QuoteView({ cart, subtotal, onBack, pkg }: QuoteViewProp
     const [guestCount, setGuestCount] = useState('');
     const [eventLocation, setEventLocation] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [step, setStep] = useState<'form' | 'review' | 'success'>('form');
 
-    const handleSendQuote = async () => {
+    const handleConfirmQuote = async () => {
         setIsSending(true);
 
         try {
@@ -55,40 +55,141 @@ export default function QuoteView({ cart, subtotal, onBack, pkg }: QuoteViewProp
                 throw new Error('Failed to send quote');
             }
 
-            setShowSuccess(true);
+            setStep('success');
         } catch (error) {
             console.error('Error sending quote:', error);
             // For demo purposes, still show success
-            setShowSuccess(true);
+            setStep('success');
         } finally {
             setIsSending(false);
         }
     };
 
-    if (showSuccess) {
+    const handleSendQuote = () => {
+        setStep('review');
+    };
+
+    if (step === 'success') {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="text-center max-w-md mx-auto p-8">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Check className="w-10 h-10 text-green-600" />
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="max-w-3xl w-full bg-[#f2f4f8] rounded-[25px] border border-[#232834] px-10 py-10 flex flex-col items-center">
+                    <div className="w-20 h-20 rounded-full border-[3px] border-[#545f71] flex items-center justify-center mb-6">
+                        <Check className="w-10 h-10 text-[#545f71]" />
                     </div>
-                    <h2 className="text-3xl font-bold mb-4">Quote Request Sent!</h2>
-                    <p className="text-gray-600 mb-8">
-                        Your quote request has been sent to {pkg.name}. They will review your request and get back to you shortly.
+                    <h2 className="text-[32px] font-semibold text-black text-center mb-1">
+                        Your quote has been sent!
+                    </h2>
+                    <p className="text-[12px] text-black text-center mb-8">
+                        Start a message with your service provider
                     </p>
-                    <div className="space-y-3">
-                        <Button
-                            onClick={onBack}
-                            className="w-full bg-[#232834] hover:bg-[#1a1f29] text-white py-4 rounded-xl"
+
+                    <div className="w-full bg-white rounded-[10px] px-6 py-4 mb-6 flex items-center">
+                        <textarea
+                            className="flex-1 text-[12px] text-black resize-none outline-none border-none bg-transparent min-h-[96px] placeholder:text-black/60"
+                            placeholder="send a message..."
+                        />
+                        <button
+                            type="button"
+                            className="ml-4 w-9 h-9 rounded-full border border-[#545f71] flex items-center justify-center text-[#545f71]"
                         >
-                            Back to Package
+                            <SendIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 h-9 px-10 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                        onClick={onBack}
+                    >
+                        Exit
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    if (step === 'review') {
+        const dateDisplay = eventDate ? new Date(eventDate).toLocaleDateString() : 'TBD';
+        const guestsDisplay = guestCount || '0';
+        const locationDisplay = eventLocation || 'Location not specified';
+
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="max-w-3xl w-full bg-[#f2f4f8] rounded-[25px] border border-[#232834] px-10 py-8">
+                    <h2 className="text-2xl font-semibold text-center text-black mb-1">
+                        Review Quote
+                    </h2>
+                    <p className="text-[12px] text-black text-center mb-6">
+                        Review your quote before you send the request
+                    </p>
+
+                    {/* Event Summary */}
+                    <div className="mb-4">
+                        <h3 className="text-[20px] font-medium text-black mb-2">Event Summary</h3>
+                        <p className="text-[16px] text-black">
+                            {pkg.name} | {dateDisplay} | {guestsDisplay} guests | {locationDisplay}
+                        </p>
+                    </div>
+
+                    <div className="border-t border-[#d8dfe9] my-4" />
+
+                    {/* Service */}
+                    <div className="mb-4">
+                        <h3 className="text-[20px] font-medium text-black mb-1">Service</h3>
+                        <p className="text-[16px] text-black">
+                            {pkg.vendor?.business_name || 'Vendor Name'}
+                        </p>
+                        <p className="text-[14px] text-[#232834]">
+                            {pkg.venue_details
+                                ? 'Venue'
+                                : pkg.catering_details
+                                ? 'Catering'
+                                : pkg.entertainment_details
+                                ? 'Entertainment'
+                                : 'Service Type'}
+                        </p>
+                    </div>
+
+                    <div className="border-t border-[#d8dfe9] my-4" />
+
+                    {/* Quote Summary */}
+                    <div className="mb-6">
+                        <h3 className="text-[20px] font-medium text-black mb-2">Quote Summary</h3>
+                        <div className="space-y-1 text-[16px] text-black">
+                            <div className="flex justify-between">
+                                <span>Estimated Subtotal:</span>
+                                <span>${subtotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Service Fee:</span>
+                                <span>$0.00</span>
+                            </div>
+                            <div className="flex justify-between font-medium mt-1">
+                                <span>Total:</span>
+                                <span>${subtotal.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-6 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                            onClick={() => setStep('form')}
+                            disabled={isSending}
+                        >
+                            Back
                         </Button>
                         <Button
-                            onClick={() => window.location.href = '/planner/browse'}
-                            variant="outline"
-                            className="w-full border-gray-300 py-4 rounded-xl"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-6 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+                            onClick={handleConfirmQuote}
+                            disabled={isSending}
                         >
-                            Browse More Packages
+                            {isSending ? 'Sending...' : 'Confirm Quote'}
                         </Button>
                     </div>
                 </div>
@@ -203,7 +304,7 @@ export default function QuoteView({ cart, subtotal, onBack, pkg }: QuoteViewProp
                         </div>
                     </div>
 
-                    {/* Quote Summary Sidebar */}
+            {/* Quote Summary Sidebar */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-24">
                             <h3 className="text-lg font-semibold mb-4">Quote Summary</h3>
@@ -245,19 +346,12 @@ export default function QuoteView({ cart, subtotal, onBack, pkg }: QuoteViewProp
                             <Button
                                 onClick={handleSendQuote}
                                 disabled={isSending}
-                                className="w-full bg-[#232834] hover:bg-[#1a1f29] text-white py-4 rounded-xl flex items-center justify-center gap-2"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full h-9 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent flex items-center justify-center gap-2 whitespace-nowrap"
                             >
-                                {isSending ? (
-                                    <>
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        <span>Sending...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-5 h-5" />
-                                        <span>Send Quote Request</span>
-                                    </>
-                                )}
+                                <Plus className="w-5 h-5" />
+                                <span>Send Quote Request</span>
                             </Button>
 
                             <p className="text-xs text-center text-gray-500 mt-4">

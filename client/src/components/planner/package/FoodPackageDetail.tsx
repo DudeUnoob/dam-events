@@ -123,42 +123,7 @@ export default function FoodPackageDetail({ pkg }: FoodPackageDetailProps) {
 
     return (
         <div className="min-h-screen bg-white">
-            {/* Header/Nav - Scout branding */}
-            <header className="sticky top-0 z-50 bg-white border-b border-black shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <Link href="/planner/browse" className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-200 via-yellow-200 to-pink-200 rounded-lg flex items-center justify-center">
-                            <span className="text-xs font-bold">S</span>
-                        </div>
-                        <span className="font-medium text-xl">scout</span>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                        <button className="p-2 rounded-full bg-[#232834] text-white">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                            </svg>
-                        </button>
-                        <button className="p-2 rounded-full bg-[#f2f4f8] text-[#545f71]">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        </button>
-                        <button className="p-2 rounded-full bg-[#f2f4f8] text-[#545f71]">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                        </button>
-                        <button className="p-2 rounded-full bg-[#f2f4f8] text-[#545f71]">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                        </button>
-                        <span className="ml-2 text-sm text-black">Sign in/Register</span>
-                    </div>
-                </div>
-            </header>
-
+            {/* Main content sits under global navigation */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {/* Hero Image */}
                 <div className="relative h-[208px] w-full rounded-t-[25px] overflow-hidden shadow-lg">
@@ -332,7 +297,9 @@ function BookingTabContent({
                 <h2 className="text-[32px] font-normal">Catering Menu</h2>
                 <Button
                     onClick={onCreateQuote}
-                    className="bg-[#232834] hover:bg-[#1a1f29] text-white rounded-2xl px-4 py-3 flex items-center gap-2"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent flex items-center gap-2 whitespace-nowrap"
                 >
                     <Plus className="w-5 h-5" />
                     <span>Create quote</span>
@@ -530,7 +497,9 @@ function OverviewTabContent({ pkg, onCreateQuote }: OverviewTabContentProps) {
 
                         <Button
                             onClick={onCreateQuote}
-                            className="w-full bg-[#232834] hover:bg-[#1a1f29] text-white rounded-2xl py-4 flex items-center justify-center gap-2"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full h-9 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent flex items-center justify-center gap-2"
                         >
                             <Plus className="w-5 h-5" />
                             <span>Create quote</span>

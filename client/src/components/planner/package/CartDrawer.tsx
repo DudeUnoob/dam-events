@@ -90,14 +90,17 @@ export default function CartDrawer({
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <Button 
-                            variant="outline" 
-                            className="w-full border-gray-300 hover:border-black hover:bg-gray-50 transition-all"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
                             onClick={onCreateQuote}
                         >
                             Create Quote
                         </Button>
                         <Button 
-                            className="w-full shadow-md hover:shadow-lg transition-all"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap shadow-md hover:shadow-lg"
                             onClick={onCheckout}
                         >
                             Book Now

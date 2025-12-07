@@ -1,6 +1,7 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
 import FoodPackageDetail from '@/components/planner/package/FoodPackageDetail';
+import VenuePackageDetail from '@/components/planner/package/VenuePackageDetail';
 import { Package } from '@/types';
 import { notFound } from 'next/navigation';
 
@@ -31,6 +32,10 @@ export default async function PackageDetailPage({ params }: PageProps) {
 
     // Cast to Package type, ensuring jsonb fields are handled
     const packageData = pkg as unknown as Package;
+
+    if (packageData.venue_details) {
+        return <VenuePackageDetail pkg={packageData} />;
+    }
 
     return <FoodPackageDetail pkg={packageData} />;
 }

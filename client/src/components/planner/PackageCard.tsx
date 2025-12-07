@@ -135,7 +135,12 @@ export function PackageCard({
           <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link href={packageDetailUrl}>View Details</Link>
           </Button>
-          <Button size="sm" className="flex-1" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 h-9 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
+            asChild
+          >
             <Link href={packageDetailUrl}>Request Quote</Link>
           </Button>
         </div>

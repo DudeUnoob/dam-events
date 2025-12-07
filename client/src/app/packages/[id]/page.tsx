@@ -373,8 +373,9 @@ export default function PackageDetailPage() {
                   </div>
 
                   <Button
-                    className="w-full mt-4"
-                    size="lg"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-9 mt-4 bg-[#232834] hover:bg-[#111827] text-white rounded-[15px] text-xs font-medium tracking-[-0.15px] leading-5 border border-transparent whitespace-nowrap"
                     onClick={handleRequestQuote}
                     disabled={requesting}
                   >
